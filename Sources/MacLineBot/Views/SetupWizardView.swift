@@ -51,7 +51,7 @@ struct SetupWizardView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 IconBadge(systemName: "storefront.fill", color: .lineGreen, size: 30)
-                Text("顧店 設定精靈").font(.title3.bold())
+                Text("Mac-Line-Bot 設定精靈").font(.title3.bold())
                 Spacer()
                 Text("第 \(step + 1) / \(titles.count) 步").font(.caption).foregroundStyle(.secondary)
             }
@@ -111,8 +111,8 @@ struct SetupWizardView: View {
 
     private var welcome: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("讓 Mac 幫你顧店 👋").font(.title2.bold())
-            Text("顧店用 macOS 內建的 Apple Intelligence 本地模型回覆 LINE 官方帳號的訊息。不用 API key、沒有 token 費用，顧客的對話和你的資料都留在自己的電腦上。")
+            Text("讓 Mac 幫你顧好 LINE 客服 👋").font(.title2.bold())
+            Text("Mac-Line-Bot 用 macOS 內建的 Apple Intelligence 本地模型回覆 LINE 官方帳號的訊息。不用 API key、沒有 token 費用，顧客的對話和你的資料都留在自己的電腦上。")
                 .foregroundStyle(.secondary)
             Card {
                 VStack(alignment: .leading, spacing: 8) {
@@ -218,7 +218,7 @@ struct SetupWizardView: View {
         let status = accountId.flatMap { app.webhookStatus[$0] }
         return VStack(alignment: .leading, spacing: 12) {
             Text("建立連線").font(.title2.bold())
-            Text("顧店會用 Cloudflare Tunnel 產生一個公開網址，並自動設定到 LINE 的 webhook，不用開 port、不用固定 IP。")
+            Text("Mac-Line-Bot 會用 Cloudflare Tunnel 產生一個公開網址，並自動設定到 LINE 的 webhook，不用開 port、不用固定 IP。")
                 .font(.caption).foregroundStyle(.secondary)
             Card {
                 VStack(alignment: .leading, spacing: 10) {
@@ -256,7 +256,7 @@ struct SetupWizardView: View {
                 if app.tunnel.state == .starting { ProgressView().controlSize(.small) }
             }
             if let error { Text(error).foregroundStyle(.red).font(.caption) }
-            Text("Quick Tunnel 每次重啟網址會變，顧店會自動幫你更新 LINE 後台。想要固定網址，之後可以在「LINE 連線」改用自訂網域。")
+            Text("Quick Tunnel 每次重啟網址會變，Mac-Line-Bot 會自動幫你更新 LINE 後台。想要固定網址，之後可以在「LINE 連線」改用自訂網域。")
                 .font(.caption).foregroundStyle(.secondary)
         }
     }

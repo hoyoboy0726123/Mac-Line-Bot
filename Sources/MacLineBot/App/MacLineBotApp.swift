@@ -10,7 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-        // 關掉視窗也要繼續顧店，從選單列圖示再打開
+        // 關掉視窗也要繼續運作，從選單列圖示再打開
         false
     }
 
@@ -20,12 +20,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 }
 
 @main
-struct GuDianApp: App {
+struct MacLineBotApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     @State private var app = AppState.shared
 
     var body: some Scene {
-        Window("顧店", id: "main") {
+        Window("Mac-Line-Bot", id: "main") {
             RootView()
                 .environment(app)
                 .environment(\.locale, Locale(identifier: "zh_Hant_TW"))
@@ -34,7 +34,7 @@ struct GuDianApp: App {
         .defaultSize(width: 1180, height: 760)
         .commands {
             CommandGroup(replacing: .newItem) {}
-            CommandMenu("顧店") {
+            CommandMenu("Mac-Line-Bot") {
                 Button("重啟 Tunnel") { app.startTunnel() }
                     .keyboardShortcut("r", modifiers: [.command, .shift])
                 Button(app.settings.aiAutoReply ? "暫停 AI 自動回覆" : "開啟 AI 自動回覆") {
@@ -67,7 +67,7 @@ struct MenuBarContent: View {
             HStack(spacing: 8) {
                 IconBadge(systemName: "storefront.fill", color: .lineGreen, size: 26)
                 VStack(alignment: .leading, spacing: 0) {
-                    Text("顧店").font(.headline)
+                    Text("Mac-Line-Bot").font(.headline)
                     HStack(spacing: 4) {
                         StatusDot(color: health.level == .ok ? .green : health.level == .warning ? .orange : .red)
                         Text(health.title).font(.caption).foregroundStyle(.secondary)
@@ -85,7 +85,7 @@ struct MenuBarContent: View {
                 .controlSize(.small)
             Divider()
             HStack {
-                Button("打開顧店") {
+                Button("打開 Mac-Line-Bot") {
                     openWindow(id: "main")
                     NSApp.activate(ignoringOtherApps: true)
                 }

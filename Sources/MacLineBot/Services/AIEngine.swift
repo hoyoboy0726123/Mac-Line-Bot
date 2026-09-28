@@ -141,7 +141,7 @@ final class AIEngine {
         }
         return AIAnswer(intent: intent, answerable: r.answerable, reply: r.reply.trimmingCharacters(in: .whitespacesAndNewlines))
         #else
-        throw NSError(domain: "GuDian", code: 10, userInfo: [NSLocalizedDescriptionKey: "Apple Intelligence 不可用"])
+        throw NSError(domain: "MacLineBot", code: 10, userInfo: [NSLocalizedDescriptionKey: "Apple Intelligence 不可用"])
         #endif
     }
 
@@ -168,7 +168,7 @@ final class AIEngine {
         let session = LanguageModelSession()
         return try await session.respond(to: prompt).content
         #else
-        throw NSError(domain: "GuDian", code: 10, userInfo: [NSLocalizedDescriptionKey: "Apple Intelligence 不可用"])
+        throw NSError(domain: "MacLineBot", code: 10, userInfo: [NSLocalizedDescriptionKey: "Apple Intelligence 不可用"])
         #endif
     }
 }

@@ -29,7 +29,7 @@ final class HTTPServer {
     typealias Handler = (HTTPRequest) async -> HTTPResponse
 
     private var listener: NWListener?
-    private let queue = DispatchQueue(label: "tw.gudian.http")
+    private let queue = DispatchQueue(label: "com.hoyoboy.maclinebot.http")
     private let handler: Handler
     private(set) var port: UInt16 = 0
 
@@ -44,7 +44,7 @@ final class HTTPServer {
     func start(port: UInt16) throws {
         stop()
         guard let nwPort = NWEndpoint.Port(rawValue: port) else {
-            throw NSError(domain: "GuDian", code: 1, userInfo: [NSLocalizedDescriptionKey: "連接埠不正確"])
+            throw NSError(domain: "MacLineBot", code: 1, userInfo: [NSLocalizedDescriptionKey: "連接埠不正確"])
         }
         let params = NWParameters.tcp
         params.allowLocalEndpointReuse = true

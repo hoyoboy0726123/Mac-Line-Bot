@@ -136,7 +136,7 @@ struct AccountSwitcher: View {
     }
 }
 
-/// 側邊欄底部：顧店 正常運作 / AI 自動回覆 開關
+/// 側邊欄底部：Mac-Line-Bot 正常運作 / AI 自動回覆 開關
 struct ServiceStatusFooter: View {
     @Environment(AppState.self) private var app
 
@@ -147,7 +147,7 @@ struct ServiceStatusFooter: View {
             HStack(spacing: 8) {
                 IconBadge(systemName: "storefront.fill", color: .lineGreen, size: 26)
                 VStack(alignment: .leading, spacing: 0) {
-                    Text("顧店").font(.system(size: 12, weight: .semibold))
+                    Text("Mac-Line-Bot").font(.system(size: 12, weight: .semibold))
                     HStack(spacing: 4) {
                         StatusDot(color: health.level == .ok ? .green : health.level == .warning ? .orange : .red)
                             .scaleEffect(0.7)

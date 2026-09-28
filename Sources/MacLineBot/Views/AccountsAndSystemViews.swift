@@ -79,7 +79,7 @@ struct SystemView: View {
                         }
                     }
                     Toggle("開啟 App 時自動啟動 Tunnel", isOn: $app.settings.autoStart)
-                    Toggle("登入 Mac 時自動開啟顧店", isOn: Binding(get: { app.launchAtLogin }, set: { app.launchAtLogin = $0 }))
+                    Toggle("登入 Mac 時自動開啟 Mac-Line-Bot", isOn: Binding(get: { app.launchAtLogin }, set: { app.launchAtLogin = $0 }))
                     Text("長期跑的話建議用 Mac mini，並到「系統設定 > 能源」關閉自動睡眠。").font(.caption).foregroundStyle(.secondary)
                 }
             }

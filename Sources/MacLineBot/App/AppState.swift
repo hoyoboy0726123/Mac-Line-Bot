@@ -200,7 +200,7 @@ final class AppState {
     func start() {
         guard !started else { return }
         started = true
-        log(.info, "顧店啟動")
+        log(.info, "Mac-Line-Bot 啟動")
         refreshAIStatus()
         startServer()
         tunnel.log = { [weak self] level, msg in self?.log(level, msg) }
@@ -300,7 +300,7 @@ final class AppState {
         if disconnectNotified {
             disconnectNotified = false
             for a in accounts where a.hasCredentials {
-                await notifyOwners(a.id, [LineMessage.text("✅ 顧店已恢復連線，AI 客服重新上線。")])
+                await notifyOwners(a.id, [LineMessage.text("✅ Mac-Line-Bot 已恢復連線，AI 客服重新上線。")])
             }
         }
         for a in accounts where a.hasCredentials {
@@ -465,7 +465,7 @@ final class AppState {
         disconnectNotified = true
         for a in accounts where a.hasCredentials && (data[a.id]?.rules.disconnectNotifyEnabled ?? true) {
             Task { @MainActor in
-                await self.notifyOwners(a.id, [LineMessage.text("⚠️ 顧店斷線通知\n\(reason)\n顧店會自動重新連線，恢復後會再通知你。")])
+                await self.notifyOwners(a.id, [LineMessage.text("⚠️ Mac-Line-Bot 斷線通知\n\(reason)\nMac-Line-Bot 會自動重新連線，恢復後會再通知你。")])
             }
         }
     }

@@ -15,7 +15,7 @@ struct BotReply {
 extension AppState {
     func handleHTTP(_ req: HTTPRequest) async -> HTTPResponse {
         if req.method == "GET", req.path == "/" || req.path == "/health" {
-            return .text("ok gudian")
+            return .text("ok maclinebot")
         }
         guard req.path.hasPrefix("/webhook/") else { return .text("Not Found", status: 404) }
         guard req.method == "POST" else { return .text("Method Not Allowed", status: 405) }
@@ -334,7 +334,7 @@ extension AppState {
         let t = text.trimmingCharacters(in: .whitespaces)
         guard t.hasPrefix("綁定") else { return nil }
         let code = t.dropFirst(2).trimmingCharacters(in: .whitespaces)
-        guard code == account.bindCode else { return "綁定碼不正確，請到顧店 App 的「LINE 連線」頁面查看最新綁定碼。" }
+        guard code == account.bindCode else { return "綁定碼不正確，請到 Mac-Line-Bot App 的「LINE 連線」頁面查看最新綁定碼。" }
         updateAccount(account.id) { a in
             if !a.ownerUserIds.contains(userId) { a.ownerUserIds.append(userId) }
             a.bindCode = BotAccount.makeBindCode()
@@ -380,7 +380,7 @@ extension AppState {
             return list.isEmpty ? "目前沒有等待真人回覆的顧客。" : "🙋 等待真人回覆\n" + list.joined(separator: "\n")
         case "指令", "說明", "help":
             return """
-            🛠 顧店指令
+            🛠 Mac-Line-Bot 指令
             #代碼 內容 → 回覆顧客
             交還 代碼 → 交還給 AI
             待回覆 → 等待真人的顧客

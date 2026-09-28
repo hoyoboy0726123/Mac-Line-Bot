@@ -2,15 +2,15 @@
 import PackageDescription
 
 let package = Package(
-    name: "GuDian",
+    name: "MacLineBot",
     platforms: [.macOS(.v26)],
     products: [
-        .executable(name: "GuDian", targets: ["GuDian"])
+        .executable(name: "MacLineBot", targets: ["MacLineBot"])
     ],
     targets: [
         .executableTarget(
-            name: "GuDian",
-            path: "Sources/GuDian",
+            name: "MacLineBot",
+            path: "Sources/MacLineBot",
             swiftSettings: [.swiftLanguageMode(.v5)]
         )
     ]

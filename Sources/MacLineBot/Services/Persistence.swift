@@ -1,10 +1,10 @@
 import Foundation
 
-/// 所有資料都存在這台 Mac：~/Library/Application Support/GuDian
+/// 所有資料都存在這台 Mac：~/Library/Application Support/MacLineBot
 enum Persistence {
     static var baseURL: URL {
         let url = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("GuDian", isDirectory: true)
+            .appendingPathComponent("MacLineBot", isDirectory: true)
         try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
     }
@@ -21,7 +21,7 @@ enum Persistence {
         return url
     }
 
-    static var logFile: URL { baseURL.appendingPathComponent("gudian.log") }
+    static var logFile: URL { baseURL.appendingPathComponent("maclinebot.log") }
 
     private static let encoder: JSONEncoder = {
         let e = JSONEncoder()
@@ -53,7 +53,7 @@ enum Persistence {
             let data = try encoder.encode(value)
             try data.write(to: url, options: .atomic)
         } catch {
-            NSLog("GuDian save failed: \(error)")
+            NSLog("MacLineBot save failed: \(error)")
         }
     }
 

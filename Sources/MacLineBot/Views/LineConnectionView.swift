@@ -203,7 +203,7 @@ struct LineConnectionView: View {
                             Text("已綁定 …\(uid.suffix(8))").font(.callout)
                             Spacer()
                             Button("測試推播") {
-                                Task { await app.notifyOwners(account.id, [LineMessage.text("👋 這是顧店的測試通知，收到代表綁定成功！")]) }
+                                Task { await app.notifyOwners(account.id, [LineMessage.text("👋 這是 Mac-Line-Bot 的測試通知，收到代表綁定成功！")]) }
                             }
                             Button("解除", role: .destructive) {
                                 app.updateAccount(account.id) { $0.ownerUserIds.removeAll { $0 == uid } }

@@ -1,4 +1,4 @@
-# 顧店 GuDian（Beta）
+# Mac-Line-Bot（Beta）
 
 **macOS 本地端 AI 串 LINE 客服。** 裝在 Mac 上，照設定精靈走七步，你的 LINE 官方帳號就會開始自己回訊息。
 
@@ -29,8 +29,8 @@
 ```bash
 git clone <this repo>
 cd Mac-Line-Bot
-./scripts/build-app.sh          # 產生 build/顧店.app
-open build/顧店.app
+./scripts/build-app.sh          # 產生 build/Mac-Line-Bot.app
+open build/Mac-Line-Bot.app
 ```
 
 開發時也可以直接 `swift run`，或用 Xcode 打開 `Package.swift`。
@@ -73,24 +73,24 @@ open build/顧店.app
 
 - 本機服務只綁在 `127.0.0.1`，外部只能經由 Tunnel 進來，且每個請求都驗證 `X-Line-Signature`。
 - AI 回覆使用 reply API（不計費）；推播通知、真人回覆、預約確認使用 push（計入官方帳號額度）。
-- 所有資料存在 `~/Library/Application Support/GuDian/`，金鑰存在同資料夾權限 600 的 `secrets.json`。
+- 所有資料存在 `~/Library/Application Support/MacLineBot/`，金鑰存在同資料夾權限 600 的 `secrets.json`。
 
 ## 固定網址（自訂網域）
 
-Quick Tunnel（`xxx.trycloudflare.com`）免設定，但重啟後網址會變（顧店會自動更新 LINE 後台）。
+Quick Tunnel（`xxx.trycloudflare.com`）免設定，但重啟後網址會變（Mac-Line-Bot 會自動更新 LINE 後台）。
 想要固定網址：
 
 1. 把網域交給 Cloudflare 管理（一年約 US$10）
 2. Cloudflare Zero Trust → Networks → Tunnels 建立 Tunnel，Public Hostname 例如 `bot.你的網域.com` → `http://localhost:8787`
-3. 在顧店「LINE 連線」選「自訂網域」，填入網域與 Tunnel Token
+3. 在 Mac-Line-Bot 「LINE 連線」選「自訂網域」，填入網域與 Tunnel Token
 
 同一個網域可以開很多子網域，不用另外付錢。
 
 ## 專案結構
 
 ```
-Sources/GuDian/
-├── App/        GuDianApp（視窗、選單列）、AppState（服務總控、排程、通知）
+Sources/MacLineBot/
+├── App/        MacLineBotApp（視窗、選單列）、AppState（服務總控、排程、通知）
 ├── Models/     帳號、知識庫、對話、預約、統計
 ├── Services/   HTTPServer、LineAPI、TunnelManager、AIEngine、BotEngine、
 │               KnowledgeRetriever（FAQ 比對 / 知識檢索）、ReservationParser

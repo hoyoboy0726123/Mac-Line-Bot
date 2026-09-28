@@ -55,7 +55,7 @@ final class TunnelManager {
         let url = URL(string: "https://github.com/cloudflare/cloudflared/releases/latest/download/\(asset)")!
         let (tmp, response) = try await URLSession.shared.download(from: url)
         guard (response as? HTTPURLResponse)?.statusCode == 200 else {
-            throw NSError(domain: "GuDian", code: 2, userInfo: [NSLocalizedDescriptionKey: "下載 cloudflared 失敗"])
+            throw NSError(domain: "MacLineBot", code: 2, userInfo: [NSLocalizedDescriptionKey: "下載 cloudflared 失敗"])
         }
         let dir = Persistence.binDir
         let tar = Process()
@@ -65,7 +65,7 @@ final class TunnelManager {
         tar.waitUntilExit()
         let path = bundledPath
         guard FileManager.default.fileExists(atPath: path) else {
-            throw NSError(domain: "GuDian", code: 3, userInfo: [NSLocalizedDescriptionKey: "解壓縮 cloudflared 失敗"])
+            throw NSError(domain: "MacLineBot", code: 3, userInfo: [NSLocalizedDescriptionKey: "解壓縮 cloudflared 失敗"])
         }
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: path)
         let xattr = Process()
