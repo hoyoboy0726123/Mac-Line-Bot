@@ -144,7 +144,7 @@ final class HTTPServer {
             let value = line[line.index(after: colon)...].trimmingCharacters(in: .whitespaces)
             headers[key] = value
         }
-        let length = Int(headers["content-length"] ?? "0") ?? 0
+        let length = max(0, Int(headers["content-length"] ?? "0") ?? 0)
         let bodyStart = range.upperBound
         guard data.count - (bodyStart - data.startIndex) >= length else { return .incomplete }
         let body = data.subdata(in: bodyStart..<(bodyStart + length))

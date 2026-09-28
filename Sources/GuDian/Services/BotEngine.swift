@@ -473,7 +473,8 @@ extension AppState {
             return await beginReservation(id, userId: userId, text: text)
         }
         if draft.awaitingConfirm {
-            if ["確認", "確認送出", "對", "好", "是", "沒問題", "ok", "OK", "正確", "可以"].contains(where: { t.hasPrefix($0) }) {
+            let yes = ["確認", "確認送出", "對", "好", "好的", "是", "是的", "沒問題", "ok", "OK", "正確", "可以", "送出"]
+            if yes.contains(t) || t.hasPrefix("確認") || t.hasPrefix("沒問題") {
                 return await submitReservation(id, userId: userId)
             }
             if t.contains("重新") || t.contains("重填") {

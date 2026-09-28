@@ -186,7 +186,11 @@ final class AppState {
         Persistence.appendLog("\(f.string(from: entry.date)) [\(level.rawValue.uppercased())] \(message)")
     }
 
-    func accountLog(_ id: UUID, _ level: LogLevel = .info, _ message: String) {
+    func accountLog(_ id: UUID, _ message: String) {
+        accountLog(id, .info, message)
+    }
+
+    func accountLog(_ id: UUID, _ level: LogLevel, _ message: String) {
         let name = account(id)?.displayName ?? "?"
         log(level, "[\(name)] \(message)")
     }

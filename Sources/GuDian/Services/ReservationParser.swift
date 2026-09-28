@@ -74,7 +74,7 @@ enum ReservationParser {
         else if m[4] == "半" { minute = 30 }
         else if !m[4].isEmpty { minute = Int(m[4].replacingOccurrences(of: "分", with: "").trimmingCharacters(in: .whitespaces)) ?? 0 }
         switch m[1] {
-        case "下午", "傍晚", "晚上", "晚間": if hour < 12 { hour += 12 }
+        case "下午", "傍晚", "晚上", "晚間": if hour < 12 { hour += 12 } else if hour == 24 { hour = 0 }
         case "中午": if hour < 6 { hour += 12 }
         default: break
         }

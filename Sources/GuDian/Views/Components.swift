@@ -185,10 +185,19 @@ struct KeywordField: View {
         TextField(title, text: $text, prompt: Text("用逗號分隔，例如：真人, 專人"))
             .onAppear { text = keywords.joined(separator: ", ") }
             .onChange(of: text) { _, new in
-                keywords = new.split(whereSeparator: { $0 == "," || $0 == "，" || $0 == "、" })
-                    .map { $0.trimmingCharacters(in: .whitespaces) }
-                    .filter { !$0.isEmpty }
+                let parsed = Self.parse(new)
+                if parsed != keywords { keywords = parsed }
             }
+            // 切換帳號時同步成新帳號的關鍵字
+            .onChange(of: keywords) { _, k in
+                if Self.parse(text) != k { text = k.joined(separator: ", ") }
+            }
+    }
+
+    static func parse(_ s: String) -> [String] {
+        s.split(whereSeparator: { $0 == "," || $0 == "，" || $0 == "、" })
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
     }
 }
 
