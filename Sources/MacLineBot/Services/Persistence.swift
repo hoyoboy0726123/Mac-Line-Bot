@@ -4,7 +4,7 @@ import Foundation
 enum Persistence {
     static var baseURL: URL {
         let url = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("MacLineBot", isDirectory: true)
+            .appendingPathComponent("MacLineBot-MIL", isDirectory: true)
         try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
     }
@@ -21,7 +21,7 @@ enum Persistence {
         return url
     }
 
-    static var logFile: URL { baseURL.appendingPathComponent("maclinebot.log") }
+    static var logFile: URL { baseURL.appendingPathComponent("maclinebot-mil.log") }
 
     private static let encoder: JSONEncoder = {
         let e = JSONEncoder()

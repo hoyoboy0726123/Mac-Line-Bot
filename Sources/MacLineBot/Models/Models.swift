@@ -337,7 +337,7 @@ enum TunnelMode: String, Codable, CaseIterable, Identifiable {
 }
 
 struct AppSettings: Codable {
-    var port: UInt16 = 8787
+    var port: UInt16 = 8788  // MIL 版用 8788，可與基礎版同時執行
     var aiAutoReply: Bool = true
     var tunnelMode: TunnelMode = .quick
     /// 自訂網域，例如 bot.mydomain.com（named tunnel 用）

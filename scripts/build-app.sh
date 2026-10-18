@@ -3,8 +3,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-APP_NAME="Mac-Line-Bot"
-BUNDLE_ID="com.hoyoboy.maclinebot"
+APP_NAME="Mac-Line-Bot MIL"
+BUNDLE_ID="com.hoyoboy.maclinebot.mil"
 VERSION="${VERSION:-0.1.0}"
 OUT="build/${APP_NAME}.app"
 

@@ -1,3 +1,10 @@
+# Mac-Line-Bot MIL（華碩軍規測試專用版）
+
+> 從基礎版 `v1.0-base` 分出來的專用版本，在 `mil` 分支開發：接下來升級 Qwen3.5 本機模型與 BGE-M3 向量檢索（評估見 `docs/local-llm-evaluation.md`），並客製華碩 ExpertBook MIL-STD-810H 客服功能。
+> 與基礎版可以同時安裝：App 名稱「Mac-Line-Bot MIL」、Bundle ID `com.hoyoboy.maclinebot.mil`、連接埠 8788、資料存在 `~/Library/Application Support/MacLineBot-MIL/`。
+
+---
+
 # Mac-Line-Bot（Beta）
 
 **macOS 本地端 AI 串 LINE 客服。** 裝在 Mac 上，照設定精靈走七步，你的 LINE 官方帳號就會開始自己回訊息。

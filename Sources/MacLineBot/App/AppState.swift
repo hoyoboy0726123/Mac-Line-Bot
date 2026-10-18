@@ -200,7 +200,7 @@ final class AppState {
     func start() {
         guard !started else { return }
         started = true
-        log(.info, "Mac-Line-Bot 啟動")
+        log(.info, "Mac-Line-Bot MIL 啟動")
         refreshAIStatus()
         startServer()
         tunnel.log = { [weak self] level, msg in self?.log(level, msg) }

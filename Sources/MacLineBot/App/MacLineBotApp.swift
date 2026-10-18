@@ -25,7 +25,7 @@ struct MacLineBotApp: App {
     @State private var app = AppState.shared
 
     var body: some Scene {
-        Window("Mac-Line-Bot", id: "main") {
+        Window("Mac-Line-Bot MIL", id: "main") {
             RootView()
                 .environment(app)
                 .environment(\.locale, Locale(identifier: "zh_Hant_TW"))
@@ -67,7 +67,7 @@ struct MenuBarContent: View {
             HStack(spacing: 8) {
                 IconBadge(systemName: "storefront.fill", color: .lineGreen, size: 26)
                 VStack(alignment: .leading, spacing: 0) {
-                    Text("Mac-Line-Bot").font(.headline)
+                    Text("Mac-Line-Bot MIL").font(.headline)
                     HStack(spacing: 4) {
                         StatusDot(color: health.level == .ok ? .green : health.level == .warning ? .orange : .red)
                         Text(health.title).font(.caption).foregroundStyle(.secondary)

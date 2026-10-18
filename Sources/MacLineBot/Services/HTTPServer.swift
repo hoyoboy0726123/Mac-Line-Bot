@@ -29,7 +29,7 @@ final class HTTPServer {
     typealias Handler = (HTTPRequest) async -> HTTPResponse
 
     private var listener: NWListener?
-    private let queue = DispatchQueue(label: "com.hoyoboy.maclinebot.http")
+    private let queue = DispatchQueue(label: "com.hoyoboy.maclinebot.mil.http")
     private let handler: Handler
     private(set) var port: UInt16 = 0
 

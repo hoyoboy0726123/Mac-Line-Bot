@@ -15,7 +15,7 @@ struct BotReply {
 extension AppState {
     func handleHTTP(_ req: HTTPRequest) async -> HTTPResponse {
         if req.method == "GET", req.path == "/" || req.path == "/health" {
-            return .text("ok maclinebot")
+            return .text("ok maclinebot-mil")
         }
         guard req.path.hasPrefix("/webhook/") else { return .text("Not Found", status: 404) }
         guard req.method == "POST" else { return .text("Method Not Allowed", status: 405) }

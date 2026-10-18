@@ -147,7 +147,7 @@ struct ServiceStatusFooter: View {
             HStack(spacing: 8) {
                 IconBadge(systemName: "storefront.fill", color: .lineGreen, size: 26)
                 VStack(alignment: .leading, spacing: 0) {
-                    Text("Mac-Line-Bot").font(.system(size: 12, weight: .semibold))
+                    Text("Mac-Line-Bot MIL").font(.system(size: 12, weight: .semibold))
                     HStack(spacing: 4) {
                         StatusDot(color: health.level == .ok ? .green : health.level == .warning ? .orange : .red)
                             .scaleEffect(0.7)
