@@ -1,0 +1,6 @@
+{
+  "edition": "base",
+  "productName": "Mac-Line-Bot",
+  "port": 8787,
+  "adminPort": 8790
+}

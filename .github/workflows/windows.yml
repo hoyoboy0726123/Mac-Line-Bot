@@ -1,0 +1,61 @@
+name: Windows 版
+
+# 每次推上 windows/ 的修改，都在真的 Windows 上：安裝套件 → 跑測試 → 打包安裝檔 → 開 App 截圖
+on:
+  push:
+    paths: ['windows/**', '.github/workflows/windows.yml']
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: windows
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: windows/package-lock.json
+
+      - name: 安裝套件
+        run: npm ci
+
+      - name: 測試
+        run: npm test
+
+      - name: 打包 Windows 安裝檔
+        run: npm run dist
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+      - name: 實際開啟 App 並截圖
+        shell: pwsh
+        run: |
+          $data = Join-Path $env:RUNNER_TEMP 'mlb-data'
+          $shots = Join-Path $env:RUNNER_TEMP 'shots'
+          New-Item -ItemType Directory -Force $data | Out-Null
+          '{"autoStart":false}' | Set-Content (Join-Path $data 'settings.json')
+          $env:MLB_DATA_DIR = $data
+          $exe = Get-ChildItem 'dist/win-unpacked/*.exe' | Select-Object -First 1
+          $p = Start-Process -FilePath $exe.FullName -ArgumentList "--screenshots=$shots" -PassThru
+          $p | Wait-Process -Timeout 240
+          Get-ChildItem $shots | Format-Table Name, Length
+          if ((Get-ChildItem $shots).Count -lt 10) { throw '截圖數量不足，App 可能沒有正常啟動' }
+
+      - name: 上傳安裝檔
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: windows/dist/*.exe
+          if-no-files-found: error
+
+      - name: 上傳截圖
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-screenshots
+          path: ${{ runner.temp }}/shots

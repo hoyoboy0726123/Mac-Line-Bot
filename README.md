@@ -1,5 +1,14 @@
 # Mac-Line-Bot（Beta）
 
+## 選擇你的作業系統
+
+| 作業系統 | 資料夾 | 開始方式 |
+| --- | --- | --- |
+| 🍎 macOS（Apple 晶片） | 專案根目錄（`Sources/`） | 看下面的說明，執行 `scripts/build-app.sh` |
+| 🪟 Windows 10 / 11 | [`windows/`](windows/README.md) | 從 GitHub Actions 下載安裝檔，或執行 `cd windows && npm install && npm start` |
+
+兩個版本的功能相同，資料格式也相同。Windows 版用本機 Ollama（Qwen）回答，並另外提供區網網頁管理。
+
 **macOS 本地端 AI 串 LINE 客服。** 裝在 Mac 上，照設定精靈走七步，你的 LINE 官方帳號就會開始自己回訊息。
 
 用的是 macOS 內建的 **Apple Intelligence 本地模型**（Foundation Models），
