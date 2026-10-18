@@ -111,6 +111,33 @@ async function takeScreenshots(dir) {
     await js(`MLB.S.section = '${s}'`);
     await wait(1200);
     await shot(s);
+    // 軍規機種：新增選單與編輯畫面
+    if (s === 'milModels' && await js(`!!document.querySelector('td.model')`)) {
+      await js(`[...document.querySelectorAll('.page button')].find((b) => b.textContent.includes('新增機種')).click()`);
+      await wait(500);
+      await shot('milModels-add');
+      await js(`document.querySelector('.menu button').click()`);
+      await wait(800);
+      await shot('milModels-new');
+      await js(`[...document.querySelectorAll('.modal button')].find((b) => b.textContent.trim() === '取消').click()`);
+      await wait(500);
+      await js(`document.querySelector('td.model').click()`);
+      await wait(800);
+      await shot('milModels-edit');
+      await js(`document.querySelector('.modal .m-body').scrollTop = 520`);
+      await wait(400);
+      await shot('milModels-edit2');
+      await js(`[...document.querySelectorAll('.modal button')].find((b) => b.textContent.trim() === '取消').click()`);
+      await wait(500);
+      await js(`document.querySelector('.main').scrollTop = 900`);
+      await wait(500);
+      await shot('milModels-tests');
+      await js(`[...document.querySelectorAll('.page button')].find((b) => b.textContent.includes('新增測試項目')).click()`);
+      await wait(800);
+      await shot('milModels-test-new');
+      await js(`[...document.querySelectorAll('.modal button')].find((b) => b.textContent.trim() === '取消').click()`);
+      await wait(500);
+    }
   }
   win.setMinimumSize(320, 400);
   win.setSize(420, 860);

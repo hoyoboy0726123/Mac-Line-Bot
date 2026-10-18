@@ -4,6 +4,8 @@ import Foundation
 /// 規則跟 knowledge/build_mil810h_faq.py 相同：每個型號 × 每個測試、系列、測試總覽、型號總表、兩兩比較、全部條件、一般問題。
 enum MILGenerator {
     static let tag = "#MIL自動產生"
+    /// 自動產生的題目被手動改過後換成這個標記，重新產生時保留，不會被覆蓋
+    static let edited = "#手動修改"
     static let docTitle = "華碩商用筆電 MIL-STD-810H 軍規測試（自動產生）"
     static let note = "※ 以華碩官方測試報告為準"
 
@@ -102,10 +104,10 @@ enum MILGenerator {
         return out.joined(separator: "\n")
     }
 
-    private static func modelSummary(_ m: MILModel) -> String {
+    private static func modelSummary(_ c: MILCatalog, _ m: MILModel) -> String {
         var out = ["\(m.display) 通過的 \(m.standard) 測試："]
-        out += MILTests.all.filter { !m.passes($0.id).isEmpty }.map { "・" + $0.name }
-        let missing = MILTests.all.filter { m.passes($0.id).isEmpty }.map(\.short)
+        out += c.allTests.filter { !m.passes($0.id).isEmpty }.map { "・" + $0.name }
+        let missing = c.allTests.filter { m.passes($0.id).isEmpty }.map(\.short)
         if !missing.isEmpty { out.append("報告中沒有：" + missing.joined(separator: "、")) }
         out.append(m.aliases.first.map { "想看某一項的詳細條件，可以直接問例如「\($0) 低溫測試」" } ?? note)
         return out.joined(separator: "\n")
@@ -116,17 +118,17 @@ enum MILGenerator {
         var out = ["\(f.name) 有 \(members.count) 份官方報告："]
         for m in members {
             out.append("【\(m.display)】")
-            out.append("・" + MILTests.all.filter { !m.passes($0.id).isEmpty }.map(\.short).joined(separator: "、"))
-            let missing = MILTests.all.filter { m.passes($0.id).isEmpty }.map(\.short)
+            out.append("・" + c.allTests.filter { !m.passes($0.id).isEmpty }.map(\.short).joined(separator: "、"))
+            let missing = c.allTests.filter { m.passes($0.id).isEmpty }.map(\.short)
             if !missing.isEmpty { out.append("・報告中沒有：" + missing.joined(separator: "、")) }
         }
         out.append("可以告訴我您的完整型號，幫您確認是哪一款 🙂")
         return out.joined(separator: "\n")
     }
 
-    private static func compare(_ a: MILModel, _ b: MILModel) -> String {
+    private static func compare(_ c: MILCatalog, _ a: MILModel, _ b: MILModel) -> String {
         var both: [String] = [], onlyA: [String] = [], onlyB: [String] = [], diff: [String] = []
-        for t in MILTests.all {
+        for t in c.allTests {
             let pa = a.passes(t.id), pb = b.passes(t.id)
             if !pa.isEmpty && !pb.isEmpty {
                 both.append(t.short)
@@ -143,7 +145,7 @@ enum MILGenerator {
         if !diff.isEmpty { out.append("同一項目的程序差異："); out += diff }
         var notes: [String] = []
         for m in [a, b] {
-            for t in MILTests.all where !m.described(t.id).isEmpty {
+            for t in c.allTests where !m.described(t.id).isEmpty {
                 notes.append("\(m.code) 的測試說明另列\(t.short)（\(labels(t, m.described(t.id)))）")
             }
         }
@@ -154,7 +156,7 @@ enum MILGenerator {
 
     private static func allConditions(_ c: MILCatalog) -> String {
         var out = ["華碩商用筆電 MIL-STD-810H 各測試項目的詳細條件："]
-        for (i, t) in MILTests.all.enumerated() {
+        for (i, t) in c.allTests.enumerated() {
             out.append("")
             out.append("\(i + 1). \(t.short)（\(t.code)）")
             out += t.procedures.map { "・" + $0.line }
@@ -172,7 +174,7 @@ enum MILGenerator {
 
     static func faqs(_ c: MILCatalog) -> [FAQItem] {
         var out: [FAQItem] = []
-        let tests = MILTests.all
+        let tests = c.allTests
 
         // 1) 每個型號 × 每個測試
         for m in c.models where !m.aliases.isEmpty {
@@ -194,7 +196,7 @@ enum MILGenerator {
         // 4) 每個型號 / 系列通過哪些測試
         let summaryWords = ["測試項目", "哪些測試", "通過", "軍規", "810", "幾項", "耐用"]
         for m in c.models where !m.aliases.isEmpty {
-            out.append(withFlex(faq("\(m.code) 通過哪些測試", modelSummary(m), combos(m.aliases, summaryWords)), MILFlex.model(c, m)))
+            out.append(withFlex(faq("\(m.code) 通過哪些測試", modelSummary(c, m), combos(m.aliases, summaryWords)), MILFlex.model(c, m)))
         }
         for f in c.multiFamilies {
             out.append(faq("\(f.name) 通過哪些測試", familySummary(c, f), combos(f.aliases, summaryWords)))
@@ -203,7 +205,7 @@ enum MILGenerator {
         for i in c.models.indices {
             for j in c.models.indices where j > i {
                 let a = c.models[i], b = c.models[j]
-                out.append(withFlex(faq("\(a.code) 和 \(b.code) 比較", compare(a, b), combos(entityAliases(c, a), entityAliases(c, b))), MILFlex.compare(c, a, b)))
+                out.append(withFlex(faq("\(a.code) 和 \(b.code) 比較", compare(c, a, b), combos(entityAliases(c, a), entityAliases(c, b))), MILFlex.compare(c, a, b)))
             }
         }
         // 圖文選單「比較型號」：用快速選項選兩台
@@ -224,20 +226,20 @@ enum MILGenerator {
     }
 
     private static func generalFAQs(_ c: MILCatalog) -> [FAQItem] {
-        let ranked = c.models.sorted { $0.passedTestCount > $1.passedTestCount }
+        let ranked = c.models.sorted { c.passedTestCount($0) > c.passedTestCount($1) }
         var best = "目前還沒有整理機種"
         if let top = ranked.first {
-            var lines = ["測試項目最完整的是 \(top.display)，通過 \(top.passedTestCount) 大類 💪",
-                         "・" + MILTests.all.filter { !top.passes($0.id).isEmpty }.map(\.short).joined(separator: "、")]
-            let described = MILTests.all.filter { top.passes($0.id).isEmpty && !top.described($0.id).isEmpty }.map(\.short)
+            var lines = ["測試項目最完整的是 \(top.display)，通過 \(c.passedTestCount(top)) 大類 💪",
+                         "・" + c.allTests.filter { !top.passes($0.id).isEmpty }.map(\.short).joined(separator: "、")]
+            let described = c.allTests.filter { top.passes($0.id).isEmpty && !top.described($0.id).isEmpty }.map(\.short)
             if !described.isEmpty { lines.append("・測試說明另列" + described.joined(separator: "、")) }
-            if ranked.count > 1 { lines.append("其次是 \(ranked[1].display)（\(ranked[1].passedTestCount) 大類）") }
+            if ranked.count > 1 { lines.append("其次是 \(ranked[1].display)（\(c.passedTestCount(ranked[1])) 大類）") }
             best = lines.joined(separator: "\n")
         }
         let modelList = (["目前整理的華碩商用筆電 MIL-STD-810H 官方報告共 \(c.models.count) 款："]
             + c.models.map { "・" + $0.display } + ["其他型號可以請專人幫您確認 🙂"]).joined(separator: "\n")
         let testList = (["華碩商用筆電的 MIL-STD-810H 測試項目（依型號不同）："]
-            + MILTests.all.map { "・\($0.code) \($0.short)" } + ["想看某一項的條件，可以直接問例如「低溫測試怎麼做」"]).joined(separator: "\n")
+            + c.allTests.map { "・\($0.code) \($0.short)" } + ["想看某一項的條件，可以直接問例如「低溫測試怎麼做」"]).joined(separator: "\n")
 
         return [
             faq("MIL-STD-810H 是什麼",
@@ -266,7 +268,7 @@ enum MILGenerator {
     }
 
     private static func desertAnswer(_ c: MILCatalog) -> String {
-        let dust = MILTests.test("dust")!
+        let dust = c.test("dust") ?? MILTests.test("dust")!
         let models = passedModels(c, dust).map { m in "\(m.code)（\(m.passes("dust").compactMap { dust.procedure($0)?.label.components(separatedBy: "（").first }.joined(separator: "＋"))）" }
         return [
             "沙漠環境可以參考高溫和沙塵兩項測試：",
@@ -292,7 +294,7 @@ enum MILGenerator {
         """)
         paras.append("本資料涵蓋的華碩商用筆電型號\n目前整理 \(c.models.count) 款華碩官方 MIL-STD-810H 測試報告：" + c.models.map(\.display).joined(separator: "、") + "。其他型號請查閱華碩官網該型號的規格頁或測試報告。")
 
-        for t in MILTests.all {
+        for t in c.allTests {
             let title = "Method \(t.code) \(t.short) \(t.name)（\(t.aliases.filter { !$0.contains(".") }.prefix(8).joined(separator: " "))）"
             paras.append(title + "\n條件：" + t.procedures.map(\.line).joined(separator: "；") + "。")
             let passed = passedModels(c, t).map { "\($0.code)（\(labels(t, $0.passes(t.id)))）" }
@@ -307,8 +309,8 @@ enum MILGenerator {
         }
 
         for m in c.models {
-            let passed = MILTests.all.filter { !m.passes($0.id).isEmpty }.map { "\($0.code) \($0.short)（\(labels($0, m.passes($0.id)))）" }
-            let missing = MILTests.all.filter { m.passes($0.id).isEmpty }.map(\.short)
+            let passed = c.allTests.filter { !m.passes($0.id).isEmpty }.map { "\($0.code) \($0.short)（\(labels($0, m.passes($0.id)))）" }
+            let missing = c.allTests.filter { m.passes($0.id).isEmpty }.map(\.short)
             var p = "\(m.display) 通過的軍規測試\(m.aliases.isEmpty ? "" : "（" + m.aliases.joined(separator: " ") + "）")\n"
             p += passed.joined(separator: "、") + "。"
             if !missing.isEmpty { p += "報告中沒有：" + missing.joined(separator: "、") + "。" }

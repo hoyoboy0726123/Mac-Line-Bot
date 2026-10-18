@@ -20,7 +20,8 @@ extension AppState {
         guard let id = selectedAccount?.id, let c = milCatalogs[id] else { return false }
         guard c.lastGenerated != nil else { return true }
         let sig: (FAQItem) -> String = { [$0.question, $0.answer, $0.flex ?? "", ($0.quickReplies ?? []).joined(separator: "|")].joined(separator: "\u{1}") }
-        let generated = Set(MILGenerator.faqs(c).map(sig))
+        let kept = Set((data[id]?.faqs ?? []).filter { $0.keywords.contains(MILGenerator.edited) }.map(\.question))
+        let generated = Set(MILGenerator.faqs(c).filter { !kept.contains($0.question) }.map(sig))
         let current = Set((data[id]?.faqs ?? []).filter { $0.keywords.contains(MILGenerator.tag) }.map(sig))
         return generated != current
     }
@@ -37,22 +38,24 @@ extension AppState {
         guard let id = selectedAccount?.id else { return nil }
         let c = milCatalogs[id] ?? MILCatalog.seed
         let out = MILGenerator.generate(c)
-        let newQuestions = Set(out.faqs.map(\.question))
+        let kept = Set((data[id]?.faqs ?? []).filter { $0.keywords.contains(MILGenerator.edited) }.map(\.question))
+        let fresh = out.faqs.filter { !kept.contains($0.question) }
+        let newQuestions = Set(fresh.map(\.question))
         var removed = 0
         update(id) { d in
             let before = d.faqs.count
             // 舊的自動產生題目，以及以前用 CSV 匯入的同名題目
             d.faqs.removeAll { $0.keywords.contains(MILGenerator.tag) || newQuestions.contains($0.question) }
             removed = before - d.faqs.count
-            d.faqs.append(contentsOf: out.faqs)
+            d.faqs.append(contentsOf: fresh)
             // 背景知識：自動產生的文件取代舊版（也取代以前手寫匯入的軍規文件）
             d.docs.removeAll { $0.title == MILGenerator.docTitle || $0.title == "ASUS商用筆電-MIL-STD-810H軍規測試" }
             d.docs.insert(out.doc, at: 0)
         }
         updateMILCatalog { $0.lastGenerated = Date() }
-        accountLog(id, "軍規知識庫已重新產生：\(out.faqs.count) 題 FAQ、背景知識 \(out.doc.content.components(separatedBy: "\n\n").count) 段（\(c.models.count) 款機種）")
+        accountLog(id, "軍規知識庫已重新產生：\(fresh.count) 題 FAQ\(kept.isEmpty ? "" : "（保留手動修改 \(kept.count) 題）")、背景知識 \(out.doc.content.components(separatedBy: "\n\n").count) 段（\(c.models.count) 款機種）")
         Task { await validateFlex(id) }
         await buildVectorIndex()
-        return MILGenerateResult(faqs: out.faqs.count, removed: removed, paragraphs: out.doc.content.components(separatedBy: "\n\n").count)
+        return MILGenerateResult(faqs: fresh.count, removed: removed, paragraphs: out.doc.content.components(separatedBy: "\n\n").count)
     }
 }

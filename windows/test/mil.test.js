@@ -147,3 +147,47 @@ test('卡片按鈕與「比較型號」快速選項都對到正確的 FAQ', () =
   for (const q of pick.quickReplies) assert.ok((route(q) || {}).question.endsWith('比較'), q);
   assert.strictEqual(route('比較型號').question, '比較型號');
 });
+
+test('自訂測試項目：跟 Mac 版產生的 FAQ、卡片、背景知識完全相同', () => {
+  const c = C.normalizeCatalog(JSON.parse(fs.readFileSync(path.join(fixtures, 'catalog_custom.json'), 'utf8')));
+  const golden = JSON.parse(fs.readFileSync(path.join(fixtures, 'faqs_swift_custom.json'), 'utf8'));
+  const faqs = G.faqs(c);
+  assert.strictEqual(faqs.length, golden.length);
+  faqs.forEach((f, i) => {
+    assert.deepStrictEqual({ q: f.question, a: f.answer, k: f.keywords, flex: f.flex || null, qr: f.quickReplies || null },
+      { q: golden[i].q, a: golden[i].a, k: golden[i].k, flex: golden[i].flex || null, qr: golden[i].qr || null }, `第 ${i + 1} 題`);
+  });
+  assert.strictEqual(G.doc(c).content, fs.readFileSync(path.join(fixtures, 'doc_swift_custom.txt'), 'utf8'));
+  // 新項目可以被問到
+  const route = (t) => R.matchFAQ(t, R.modelTokens(t).length >= 2 ? faqs.filter((f) => f.question.includes('比較')) : faqs);
+  assert.strictEqual(route('淋雨測試怎麼做').question, '淋雨測試怎麼做');
+  assert.strictEqual(route('P5 下雨天可以用嗎').question, 'P5405CSA 淋雨測試');
+  assert.strictEqual(route('放冷凍庫會壞嗎').question, '低溫測試怎麼做');
+  assert.ok(faqs.find((f) => f.question === 'P5405CSA 淋雨測試').answer.includes('降雨率 1.7 mm/min'));
+});
+
+test('自訂測試項目：PDF 文字用 Method 編號自動勾選；刪掉程序會清掉機種勾選', () => {
+  const c = C.normalizeCatalog(JSON.parse(fs.readFileSync(path.join(fixtures, 'catalog_custom.json'), 'utf8')));
+  const P = require('../src/core/mil/parser');
+  const r = P.parse(['Test Report - B9999X\nMethod 506.6 - Procedure III Rain Pass\nMethod 500.6 - Procedure II Pass'], C.allTests(c));
+  assert.deepStrictEqual(r.passed, { 'custom-rain': ['III'], altitude: ['II'] });
+  c.tests.find((t) => t.id === 'custom-rain').procedures = c.tests.find((t) => t.id === 'custom-rain').procedures.filter((p) => p.id !== 'III');
+  C.pruneModels(c);
+  assert.deepStrictEqual(c.models[0].passed['custom-rain'], ['I']);
+  assert.strictEqual(c.models[1].passed['custom-rain'], undefined);
+});
+
+test('手動修改過的自動產生題目，重新產生時保留', () => {
+  const cat = C.seedCatalog();
+  const d = defaultAccountData();
+  MIL.applyGenerated(d, cat);
+  const f = d.faqs.find((x) => x.question === 'P5405CSA 低溫測試');
+  f.answer = '我自己寫的答案';
+  f.keywords = f.keywords.filter((k) => k !== G.TAG).concat(MIL.EDITED);
+  cat.lastGenerated = '2026-10-18T00:00:00Z';
+  assert.strictEqual(MIL.needsRegenerate(cat, d), false);
+  const r = MIL.applyGenerated(d, cat);
+  assert.strictEqual(r.kept, 1);
+  assert.strictEqual(d.faqs.filter((x) => x.question === 'P5405CSA 低溫測試').length, 1);
+  assert.strictEqual(d.faqs.find((x) => x.question === 'P5405CSA 低溫測試').answer, '我自己寫的答案');
+});

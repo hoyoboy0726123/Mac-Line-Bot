@@ -11,6 +11,9 @@ struct MILModelsView: View {
     @State private var result: String?
     @State private var errorText: String?
     @State private var editingFamilies = false
+    @State private var editingTest: MILTestDef?
+    @State private var newTestDraft = false
+    @State private var confirmReset = false
 
     var body: some View {
         let catalog = app.milCatalog
@@ -19,10 +22,30 @@ struct MILModelsView: View {
             if let errorText { Text(errorText).font(.callout).foregroundStyle(.red) }
             matrix(catalog)
             legend
+            testsCard(catalog)
             familiesCard(catalog)
         }
+        .sheet(item: $editingTest) { t in
+            MILTestEditor(test: t, isNew: !catalog.allTests.contains { $0.id == t.id },
+                          used: catalog.models.filter { !$0.passes(t.id).isEmpty || !$0.described(t.id).isEmpty }.count) { saved in
+                app.updateMILCatalog { c in
+                    c.editTests { list in
+                        if let i = list.firstIndex(where: { $0.id == saved.id }) { list[i] = saved } else { list.append(saved) }
+                    }
+                }
+            } onDelete: { removed in
+                app.updateMILCatalog { c in c.editTests { $0.removeAll { $0.id == removed.id } } }
+            }
+        }
+        .confirmationDialog("把測試項目還原成內建的 13 項？", isPresented: $confirmReset) {
+            Button("還原（自己新增的項目會刪除）", role: .destructive) {
+                app.updateMILCatalog { c in c.tests = nil; c.pruneModels() }
+            }
+        } message: {
+            Text("機種上對應的勾選也會清掉，記得再按「產生知識庫」。")
+        }
         .sheet(item: $editing) { model in
-            MILModelEditor(model: model, families: catalog.families.map(\.name),
+            MILModelEditor(model: model, tests: catalog.allTests, families: catalog.families.map(\.name),
                            isNew: !catalog.models.contains { $0.id == model.id }) { saved in
                 app.updateMILCatalog { c in
                     if let i = c.models.firstIndex(where: { $0.id == saved.id }) { c.models[i] = saved } else { c.models.append(saved) }
@@ -93,7 +116,7 @@ struct MILModelsView: View {
                 Grid(alignment: .center, horizontalSpacing: 0, verticalSpacing: 0) {
                     GridRow {
                         Text("機種").font(.caption.bold()).frame(width: 230, alignment: .leading).padding(.leading, 12)
-                        ForEach(MILTests.all) { t in
+                        ForEach(c.allTests) { t in
                             VStack(spacing: 1) {
                                 Text(t.short).font(.caption2.bold()).lineLimit(2).multilineTextAlignment(.center)
                                 Text(t.code).font(.system(size: 9)).foregroundStyle(.secondary)
@@ -118,10 +141,10 @@ struct MILModelsView: View {
                             }
                             .buttonStyle(.plain)
                             .help("點一下編輯")
-                            ForEach(MILTests.all) { t in
+                            ForEach(c.allTests) { t in
                                 cell(m, t).frame(width: 58)
                             }
-                            Text("\(m.passedTestCount)").font(.callout.monospacedDigit().bold()).frame(width: 44)
+                            Text("\(c.passedTestCount(m))").font(.callout.monospacedDigit().bold()).frame(width: 44)
                         }
                         Divider().gridCellUnsizedAxes(.horizontal)
                     }
@@ -164,6 +187,52 @@ struct MILModelsView: View {
             Text("點機種名稱可以編輯").foregroundStyle(.secondary)
         }
         .font(.caption)
+    }
+
+    // MARK: 測試項目
+
+    private func testsCard(_ c: MILCatalog) -> some View {
+        Card {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("測試項目").font(.headline)
+                    Text("表格的每一欄。可以新增報告裡的新測試，或修改條件文字與顧客的說法；改完按「產生知識庫」就會更新回答")
+                        .font(.caption).foregroundStyle(.secondary)
+                    Spacer()
+                    if c.tests != nil { Button("還原預設") { confirmReset = true } }
+                    Button {
+                        editingTest = MILTestDef(id: "custom-" + UUID().uuidString.prefix(8).lowercased(), code: "", name: "", short: "",
+                                                 procedures: [MILProcedure(id: "I", label: "", detail: "")], aliases: [])
+                    } label: { Label("新增測試項目", systemImage: "plus") }
+                    .buttonStyle(.borderedProminent)
+                }
+                ForEach(Array(c.allTests.enumerated()), id: \.element.id) { i, t in
+                    HStack(spacing: 10) {
+                        Text(t.code).font(.caption.monospacedDigit()).frame(width: 52)
+                            .padding(.vertical, 2).background(RoundedRectangle(cornerRadius: 5).fill(Color.primary.opacity(0.06)))
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(t.short).font(.callout.weight(.semibold))
+                            Text(t.procedures.map(\.label).joined(separator: "、")).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                        }
+                        Spacer()
+                        Text("\(c.models.filter { !$0.passes(t.id).isEmpty }.count) 款").font(.caption).foregroundStyle(.secondary)
+                        Button { move(t, -1) } label: { Image(systemName: "arrow.up") }.buttonStyle(.borderless).disabled(i == 0)
+                        Button { move(t, 1) } label: { Image(systemName: "arrow.down") }.buttonStyle(.borderless).disabled(i == c.allTests.count - 1)
+                        Button("編輯") { editingTest = t }
+                    }
+                    Divider()
+                }
+            }
+        }
+    }
+
+    private func move(_ t: MILTestDef, _ d: Int) {
+        app.updateMILCatalog { c in
+            c.editTests { list in
+                guard let i = list.firstIndex(where: { $0.id == t.id }), list.indices.contains(i + d) else { return }
+                list.swapAt(i, i + d)
+            }
+        }
     }
 
     // MARK: 系列
@@ -219,7 +288,7 @@ struct MILModelsView: View {
     private func importReport(_ url: URL) async {
         errorText = nil
         do {
-            let r = try await MILReportParser.load(from: url)
+            let r = try await MILReportParser.load(from: url, tests: app.milCatalog.allTests)
             let code = r.codeGuess ?? ""
             var m = MILModel(code: code, display: code.isEmpty ? "" : "ExpertBook（\(code)）", aliases: code.isEmpty ? [] : [code])
             m.passed = r.passed
@@ -237,6 +306,7 @@ struct MILModelsView: View {
 
 struct MILModelEditor: View {
     @State var model: MILModel
+    var tests: [MILTestDef]
     var families: [String]
     var isNew: Bool
     var onSave: (MILModel) -> Void
@@ -254,7 +324,7 @@ struct MILModelEditor: View {
             HStack {
                 Text(isNew ? "新增機種" : "編輯 \(model.code)").font(.title3.bold())
                 Spacer()
-                Text("通過 \(model.passedTestCount) 大類").font(.callout).foregroundStyle(.secondary)
+                Text("通過 \(tests.filter { !model.passes($0.id).isEmpty }.count) 大類").font(.callout).foregroundStyle(.secondary)
             }
             .padding(20)
             Divider()
@@ -281,7 +351,7 @@ struct MILModelEditor: View {
 
                     Text("通過的測試程序").font(.headline).padding(.horizontal, 4)
                     Text("「說明另列」＝只出現在報告的測試說明、結果總表沒有列；客服會照實說明").font(.caption).foregroundStyle(.secondary).padding(.horizontal, 4)
-                    ForEach(MILTests.all) { t in
+                    ForEach(tests) { t in
                         Card(padding: 12) {
                             VStack(alignment: .leading, spacing: 6) {
                                 HStack {
@@ -352,7 +422,7 @@ struct MILModelEditor: View {
                 var d = model.described(test).filter { $0 != proc }
                 if v == .passed { p.append(proc) }
                 if v == .described { d.append(proc) }
-                let order = MILTests.test(test)?.procedures.map(\.id) ?? []
+                let order = tests.first { $0.id == test }?.procedures.map(\.id) ?? []
                 model.passed[test] = p.isEmpty ? nil : order.filter { p.contains($0) }
                 model.describedOnly[test] = d.isEmpty ? nil : order.filter { d.contains($0) }
             }
@@ -385,5 +455,110 @@ struct MILURLImportSheet: View {
         }
         .padding(20)
         .frame(width: 560)
+    }
+}
+
+
+// MARK: - 編輯測試項目
+
+struct MILTestEditor: View {
+    @State var test: MILTestDef
+    var isNew: Bool
+    var used: Int
+    var onSave: (MILTestDef) -> Void
+    var onDelete: (MILTestDef) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var confirmDelete = false
+    @State private var autoName = false
+
+    private var composed: String { test.short.isEmpty || test.code.isEmpty ? "" : "\(test.short)測試（Method \(test.code)）" }
+    private var valid: Bool {
+        let ids = test.procedures.map { $0.id.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        return !test.short.trimmingCharacters(in: .whitespaces).isEmpty && !test.code.trimmingCharacters(in: .whitespaces).isEmpty
+            && !ids.isEmpty && Set(ids).count == ids.count
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(isNew ? "新增測試項目" : "編輯「\(test.short)」").font(.title3.bold()).padding(20)
+            Divider()
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    Form {
+                        TextField("簡稱", text: $test.short, prompt: Text("例如 淋雨（顧客看到的名稱）"))
+                        TextField("Method 編號", text: $test.code, prompt: Text("例如 506.6（PDF 匯入時用這個編號自動勾選）"))
+                        TextField("完整名稱", text: Binding(get: { test.name }, set: { test.name = $0; autoName = false }),
+                                  prompt: Text("例如 淋雨測試（Method 506.6）"))
+                        KeywordField(title: "顧客的說法", keywords: $test.aliases)
+                        Text("例如 淋雨, 下雨, 防水。顧客的問題裡出現這些字，就會對到這個測試").font(.caption).foregroundStyle(.secondary)
+                    }
+                    .formStyle(.grouped)
+                    HStack {
+                        Text("測試程序與條件").font(.headline)
+                        Spacer()
+                        Button { addProc() } label: { Label("新增程序", systemImage: "plus") }
+                    }
+                    Text("程序代號對應報告裡的「Procedure I／II…」，PDF 匯入時會自動勾選。條件會原文出現在客服回答裡，數字請照報告填寫。")
+                        .font(.caption).foregroundStyle(.secondary)
+                    ForEach(test.procedures.indices, id: \.self) { i in
+                        Card(padding: 10) {
+                            VStack(spacing: 6) {
+                                HStack {
+                                    TextField("代號", text: $test.procedures[i].id).frame(width: 70)
+                                    TextField("程序名稱，例如 降雨（程序 I）", text: $test.procedures[i].label)
+                                    Button { test.procedures.swapAt(i, i - 1) } label: { Image(systemName: "arrow.up") }
+                                        .buttonStyle(.borderless).disabled(i == 0)
+                                    Button { test.procedures.swapAt(i, i + 1) } label: { Image(systemName: "arrow.down") }
+                                        .buttonStyle(.borderless).disabled(i == test.procedures.count - 1)
+                                    Button(role: .destructive) { test.procedures.remove(at: i) } label: { Image(systemName: "trash") }
+                                        .buttonStyle(.borderless).disabled(test.procedures.count == 1)
+                                }
+                                TextField("條件，例如 降雨率 1.7 mm/min、風速 18 m/s，30 分鐘", text: $test.procedures[i].detail)
+                            }
+                            .textFieldStyle(.roundedBorder)
+                        }
+                    }
+                }
+                .padding(20)
+            }
+            Divider()
+            HStack {
+                if !isNew { Button("刪除測試項目", role: .destructive) { confirmDelete = true } }
+                Spacer()
+                Button("取消") { dismiss() }
+                Button("儲存") {
+                    var t = test
+                    t.short = t.short.trimmingCharacters(in: .whitespaces)
+                    t.code = t.code.trimmingCharacters(in: .whitespaces)
+                    if t.name.trimmingCharacters(in: .whitespaces).isEmpty { t.name = "\(t.short)測試（Method \(t.code)）" }
+                    t.procedures = t.procedures.compactMap { p in
+                        let id = p.id.trimmingCharacters(in: .whitespaces)
+                        guard !id.isEmpty else { return nil }
+                        return MILProcedure(id: id, label: p.label.isEmpty ? "程序 \(id)" : p.label, detail: p.detail)
+                    }
+                    onSave(t)
+                    dismiss()
+                }
+                .buttonStyle(.borderedProminent)
+                .keyboardShortcut(.defaultAction)
+                .disabled(!valid)
+            }
+            .padding(16)
+        }
+        .frame(width: 720, height: 700)
+        .onAppear { autoName = isNew }
+        .onChange(of: test.short) { _, _ in if autoName { test.name = composed } }
+        .onChange(of: test.code) { _, _ in if autoName { test.name = composed } }
+        .confirmationDialog("刪除「\(test.short)」？", isPresented: $confirmDelete) {
+            Button("刪除", role: .destructive) { onDelete(test); dismiss() }
+        } message: {
+            Text((used > 0 ? "有 \(used) 款機種勾選了這項，勾選紀錄會一起清掉。" : "") + "刪除後記得按「產生知識庫」。")
+        }
+    }
+
+    private func addProc() {
+        let romans = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"]
+        let next = romans.first { r in !test.procedures.contains { $0.id == r } } ?? "P\(test.procedures.count + 1)"
+        test.procedures.append(MILProcedure(id: next, label: "", detail: ""))
     }
 }

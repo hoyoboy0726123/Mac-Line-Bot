@@ -88,10 +88,10 @@ function testOverview(c, t) {
   return out.join('\n');
 }
 
-function modelSummary(m) {
+function modelSummary(c, m) {
   const out = [`${m.display} 通過的 ${m.standard} 測試：`];
-  out.push(...C.TESTS.filter((t) => C.passes(m, t).length).map((t) => '・' + t.name));
-  const missing = C.TESTS.filter((t) => !C.passes(m, t).length).map((t) => t.short);
+  out.push(...C.allTests(c).filter((t) => C.passes(m, t).length).map((t) => '・' + t.name));
+  const missing = C.allTests(c).filter((t) => !C.passes(m, t).length).map((t) => t.short);
   if (missing.length) out.push('報告中沒有：' + missing.join('、'));
   out.push(m.aliases.length ? `想看某一項的詳細條件，可以直接問例如「${m.aliases[0]} 低溫測試」` : NOTE);
   return out.join('\n');
@@ -102,17 +102,17 @@ function familySummary(c, f) {
   const out = [`${f.name} 有 ${members.length} 份官方報告：`];
   for (const m of members) {
     out.push(`【${m.display}】`);
-    out.push('・' + C.TESTS.filter((t) => C.passes(m, t).length).map((t) => t.short).join('、'));
-    const missing = C.TESTS.filter((t) => !C.passes(m, t).length).map((t) => t.short);
+    out.push('・' + C.allTests(c).filter((t) => C.passes(m, t).length).map((t) => t.short).join('、'));
+    const missing = C.allTests(c).filter((t) => !C.passes(m, t).length).map((t) => t.short);
     if (missing.length) out.push('・報告中沒有：' + missing.join('、'));
   }
   out.push('可以告訴我您的完整型號，幫您確認是哪一款 🙂');
   return out.join('\n');
 }
 
-function compare(a, b) {
+function compare(c, a, b) {
   const both = [], onlyA = [], onlyB = [], diff = [];
-  for (const t of C.TESTS) {
+  for (const t of C.allTests(c)) {
     const pa = C.passes(a, t), pb = C.passes(b, t);
     if (pa.length && pb.length) {
       both.push(t.short);
@@ -129,7 +129,7 @@ function compare(a, b) {
   if (diff.length) { out.push('同一項目的程序差異：'); out.push(...diff); }
   const notes = [];
   for (const m of [a, b]) {
-    for (const t of C.TESTS) {
+    for (const t of C.allTests(c)) {
       if (C.described(m, t).length) notes.push(`${m.code} 的測試說明另列${t.short}（${labels(t, C.described(m, t))}）`);
     }
   }
@@ -140,7 +140,7 @@ function compare(a, b) {
 
 function allConditions(c) {
   const out = ['華碩商用筆電 MIL-STD-810H 各測試項目的詳細條件：'];
-  C.TESTS.forEach((t, i) => {
+  C.allTests(c).forEach((t, i) => {
     out.push('');
     out.push(`${i + 1}. ${t.short}（${t.code}）`);
     out.push(...t.procedures.map((p) => '・' + C.procLine(p)));
@@ -157,7 +157,7 @@ function allConditions(c) {
 
 function faqs(c) {
   const out = [];
-  const tests = C.TESTS;
+  const tests = C.allTests(c);
   // 1) 每個型號 × 每個測試
   for (const m of c.models) {
     if (!m.aliases.length) continue;
@@ -175,14 +175,14 @@ function faqs(c) {
   // 4) 每個型號 / 系列通過哪些測試
   const summaryWords = ['測試項目', '哪些測試', '通過', '軍規', '810', '幾項', '耐用'];
   for (const m of c.models) {
-    if (m.aliases.length) out.push(withFlex(faq(`${m.code} 通過哪些測試`, modelSummary(m), combos(m.aliases, summaryWords)), F.model(c, m)));
+    if (m.aliases.length) out.push(withFlex(faq(`${m.code} 通過哪些測試`, modelSummary(c, m), combos(m.aliases, summaryWords)), F.model(c, m)));
   }
   for (const f of C.multiFamilies(c)) out.push(faq(`${f.name} 通過哪些測試`, familySummary(c, f), combos(f.aliases, summaryWords)));
   // 5) 兩兩比較
   for (let i = 0; i < c.models.length; i++) {
     for (let j = i + 1; j < c.models.length; j++) {
       const a = c.models[i], b = c.models[j];
-      out.push(withFlex(faq(`${a.code} 和 ${b.code} 比較`, compare(a, b), combos(entityAliases(c, a), entityAliases(c, b))), F.compare(c, a, b)));
+      out.push(withFlex(faq(`${a.code} 和 ${b.code} 比較`, compare(c, a, b), combos(entityAliases(c, a), entityAliases(c, b))), F.compare(c, a, b)));
     }
   }
   // 圖文選單「比較型號」：用快速選項選兩台
@@ -203,21 +203,21 @@ function faqs(c) {
 }
 
 function generalFAQs(c) {
-  const ranked = [...c.models].sort((a, b) => C.passedTestCount(b) - C.passedTestCount(a));
+  const ranked = [...c.models].sort((a, b) => C.passedTestCount(b, C.allTests(c)) - C.passedTestCount(a, C.allTests(c)));
   let best = '目前還沒有整理機種';
   if (ranked.length) {
     const top = ranked[0];
-    const ls = [`測試項目最完整的是 ${top.display}，通過 ${C.passedTestCount(top)} 大類 💪`,
-      '・' + C.TESTS.filter((t) => C.passes(top, t).length).map((t) => t.short).join('、')];
-    const desc = C.TESTS.filter((t) => !C.passes(top, t).length && C.described(top, t).length).map((t) => t.short);
+    const ls = [`測試項目最完整的是 ${top.display}，通過 ${C.passedTestCount(top, C.allTests(c))} 大類 💪`,
+      '・' + C.allTests(c).filter((t) => C.passes(top, t).length).map((t) => t.short).join('、')];
+    const desc = C.allTests(c).filter((t) => !C.passes(top, t).length && C.described(top, t).length).map((t) => t.short);
     if (desc.length) ls.push('・測試說明另列' + desc.join('、'));
-    if (ranked.length > 1) ls.push(`其次是 ${ranked[1].display}（${C.passedTestCount(ranked[1])} 大類）`);
+    if (ranked.length > 1) ls.push(`其次是 ${ranked[1].display}（${C.passedTestCount(ranked[1], C.allTests(c))} 大類）`);
     best = ls.join('\n');
   }
   const modelList = [`目前整理的華碩商用筆電 MIL-STD-810H 官方報告共 ${c.models.length} 款：`,
     ...c.models.map((m) => '・' + m.display), '其他型號可以請專人幫您確認 🙂'].join('\n');
   const testList = ['華碩商用筆電的 MIL-STD-810H 測試項目（依型號不同）：',
-    ...C.TESTS.map((t) => `・${t.code} ${t.short}`), '想看某一項的條件，可以直接問例如「低溫測試怎麼做」'].join('\n');
+    ...C.allTests(c).map((t) => `・${t.code} ${t.short}`), '想看某一項的條件，可以直接問例如「低溫測試怎麼做」'].join('\n');
 
   return [
     faq('MIL-STD-810H 是什麼',
@@ -246,7 +246,7 @@ function generalFAQs(c) {
 }
 
 function desertAnswer(c) {
-  const dust = C.test('dust');
+  const dust = C.findTest(c, 'dust') || C.test('dust');
   const models = passedModels(c, dust).map((m) => `${m.code}（${C.passes(m, 'dust').map((p) => C.procedure(dust, p)).filter(Boolean).map((p) => p.label.split('（')[0]).join('＋')}）`);
   return [
     '沙漠環境可以參考高溫和沙塵兩項測試：',
@@ -266,7 +266,7 @@ function doc(c) {
   paras.push('軍規測試 注意事項 免責聲明 保固\n華碩說明：MIL-STD-810 測試只針對指定產品進行，在實驗室條件下執行，不代表產品適合軍事用途，也不代表符合美國國防部採購規範。測試結果不保證未來在相同條件下的表現。在這些條件下造成的損壞（或嘗試重現測試）視為意外損壞，不在標準保固範圍內，可另購華碩 Premium Care 意外損壞保護。');
   paras.push(`本資料涵蓋的華碩商用筆電型號\n目前整理 ${c.models.length} 款華碩官方 MIL-STD-810H 測試報告：` + c.models.map((m) => m.display).join('、') + '。其他型號請查閱華碩官網該型號的規格頁或測試報告。');
 
-  for (const t of C.TESTS) {
+  for (const t of C.allTests(c)) {
     const title = `Method ${t.code} ${t.short} ${t.name}（${t.aliases.filter((a) => !a.includes('.')).slice(0, 8).join(' ')}）`;
     paras.push(title + '\n條件：' + t.procedures.map(C.procLine).join('；') + '。');
     const passed = passedModels(c, t).map((m) => `${m.code}（${labels(t, C.passes(m, t))}）`);
@@ -281,8 +281,8 @@ function doc(c) {
   }
 
   for (const m of c.models) {
-    const passed = C.TESTS.filter((t) => C.passes(m, t).length).map((t) => `${t.code} ${t.short}（${labels(t, C.passes(m, t))}）`);
-    const missing = C.TESTS.filter((t) => !C.passes(m, t).length).map((t) => t.short);
+    const passed = C.allTests(c).filter((t) => C.passes(m, t).length).map((t) => `${t.code} ${t.short}（${labels(t, C.passes(m, t))}）`);
+    const missing = C.allTests(c).filter((t) => !C.passes(m, t).length).map((t) => t.short);
     let p = `${m.display} 通過的軍規測試${m.aliases.length ? '（' + m.aliases.join(' ') + '）' : ''}\n`;
     p += passed.join('、') + '。';
     if (missing.length) p += '報告中沒有：' + missing.join('、') + '。';

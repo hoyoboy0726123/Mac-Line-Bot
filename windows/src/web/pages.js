@@ -340,6 +340,7 @@
       <label class="field"><span>問題</span><input type="text" v-model="f.question"></label>
       <label class="field"><span>關鍵字</span><KeywordField v-model="f.keywords"/></label>
       <div class="small muted">關鍵字用「+」代表要同時出現，例如「P5+低溫」只會在顧客同時提到 P5 和低溫時命中</div>
+      <div v-if="(f.keywords || []).includes('#MIL自動產生')" class="small warn">這題是軍規機種自動產生的。改了之後會標成「手動修改」，之後按「產生知識庫」會保留你的版本（但不再自動更新，也不再用卡片呈現）。</div>
       <Toggle v-model="f.isEnabled" label="啟用"/>
       <label class="field"><span>標準答案</span><textarea v-model="f.answer" rows="7"></textarea></label>
       <template #foot><button class="btn" @click="$emit('close')">取消</button><button class="btn primary" :disabled="!f.question || !f.answer" @click="save">儲存</button></template>
@@ -425,7 +426,7 @@
           <div class="row top">
             <div class="grow col" style="gap:4px">
               <div class="row wrap" style="gap:6px"><b>{{ f.question }}</b><Tag v-if="f.isEnabled === false" text="停用"/>
-                <Tag v-if="f.hitCount" :text="'命中 ' + f.hitCount" color="teal"/><Tag v-if="(f.keywords || []).includes('#MIL自動產生')" text="自動產生" color="indigo"/></div>
+                <Tag v-if="f.hitCount" :text="'命中 ' + f.hitCount" color="teal"/><Tag v-if="(f.keywords || []).includes('#MIL自動產生')" text="自動產生" color="indigo"/><Tag v-if="(f.keywords || []).includes('#手動修改')" text="手動修改" color="orange"/><Tag v-if="f.flex" text="卡片" color="teal"/></div>
               <div class="small muted clamp3">{{ f.answer }}</div>
               <div v-if="kw(f)" class="tiny faint">關鍵字：{{ kw(f) }}</div>
             </div>

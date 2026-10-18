@@ -10,11 +10,11 @@ const C = require('./catalog');
 // MARK: 解析文字
 
 /// 有「Pass」的頁面是結果總表；沒有的是測試說明（只出現在說明裡的程序另外標示）
-function parse(pages) {
+function parse(pages, tests = C.TESTS) {
   const resultPages = pages.filter((p) => p.includes('Pass'));
   const descPages = pages.filter((p) => !p.includes('Pass'));
-  const passed = section(resultPages.join('\n'));
-  const described = section(descPages.join('\n'));
+  const passed = section(resultPages.join('\n'), tests);
+  const described = section(descPages.join('\n'), tests);
   for (const [t, procs] of Object.entries(described)) {
     const rest = procs.filter((p) => !(passed[t] || []).includes(p));
     if (rest.length) described[t] = rest; else delete described[t];
@@ -23,14 +23,14 @@ function parse(pages) {
   return { codeGuess: guessCode(all), passed, describedOnly: described, text: all };
 }
 
-function section(raw) {
+function section(raw, tests = C.TESTS) {
   const text = raw.replace(/‐/g, '-').replace(/–/g, '-').replace(/Procedure1/g, 'Procedure 1');
   const passed = {};
   const add = (t, p) => { if (!(passed[t] || []).includes(p)) (passed[t] = passed[t] || []).push(p); };
   // 程序前面 80 個字的說明（例如「Cold Climatic Storage」），用來判斷 A1/A2、C1/C2
   const context = (loc) => text.slice(Math.max(0, loc - 80), loc).toLowerCase().split(/\s+/).filter(Boolean).join(' ');
 
-  const re = /Method\s*(\d{3}\.\d)\s*-?\s*Procedure\s*([IV]+(?:-[ABC])?|1)\b\s*(?:\((A1|A2|C1|C2)\))?/g;
+  const re = /Method\s*(\d{3}\.\d)\s*-?\s*Procedure\s*([IVX]+(?:-[ABC])?|\d)\b\s*(?:\((A1|A2|C1|C2)\))?/g;
   for (const m of text.matchAll(re)) {
     const method = m[1], proc = m[2], explicit = m[3] || '';
     const ctx = context(m.index);
@@ -67,7 +67,14 @@ function section(raw) {
         break;
       case '524.1': add('freeze', 'III'); break;
       case '528.1': add('ship', '1'); break;
-      default: break;
+      default: {
+        // 使用者自己新增的測試項目：Method 編號相同就勾選；程序代號對得上就勾那一個，只有一個程序就勾它
+        for (const t of tests.filter((x) => x.code === method && !C.test(x.id))) {
+          const id = proc.replace(/-/g, '');
+          const p = t.procedures.find((x) => x.id === proc || x.id === id) || (t.procedures.length === 1 ? t.procedures[0] : null);
+          if (p) add(t.id, p.id);
+        }
+      }
     }
   }
   // 振動用表號：Table 514.8C-I / C-IV / C-VI / C-VII、Figure 514.8E-1
@@ -76,8 +83,10 @@ function section(raw) {
 
   // 依測試定義的順序排好
   for (const [t, procs] of Object.entries(passed)) {
-    const def = C.test(t);
+    const def = tests.find((x) => x.id === t);
     if (def) passed[t] = def.procedures.map((p) => p.id).filter((id) => procs.includes(id));
+    else delete passed[t];
+    if (passed[t] && !passed[t].length) delete passed[t];
   }
   return passed;
 }
@@ -138,18 +147,18 @@ async function pdfPages(buffer) {
   return pages;
 }
 
-async function parsePDF(buffer) {
+async function parsePDF(buffer, tests) {
   let pages;
   try {
     pages = await pdfPages(buffer);
   } catch (e) {
     throw new Error('不是可以讀取的 PDF');
   }
-  return parse(pages);
+  return parse(pages, tests);
 }
 
 /// source：本機檔案路徑、http(s) 網址或 Buffer
-async function load(source) {
+async function load(source, tests) {
   let data;
   if (Buffer.isBuffer(source) || source instanceof Uint8Array) {
     data = Buffer.from(source);
@@ -165,7 +174,7 @@ async function load(source) {
   } else {
     data = fs.readFileSync(source);
   }
-  return parsePDF(data);
+  return parsePDF(data, tests);
 }
 
 module.exports = { parse, guessCode, pageText, pdfPages, parsePDF, load };

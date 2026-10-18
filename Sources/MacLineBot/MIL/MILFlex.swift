@@ -81,7 +81,7 @@ enum MILFlex {
             ]),
             sep(),
         ]
-        for t in MILTests.all {
+        for t in c.allTests {
             rows.append(box("horizontal", [text(t.short, ["size": "sm", "color": textColor, "flex": 4]), cellText(cell(a, t), 3), cellText(cell(b, t), 3)]))
         }
         rows += [sep("md"), text(legend, ["size": "xxs", "color": gray, "margin": "md"]), text(note, ["size": "xxs", "color": gray])]
@@ -122,7 +122,7 @@ enum MILFlex {
     // MARK: 單一型號：每項測試的結果
 
     static func model(_ c: MILCatalog, _ m: MILModel) -> J {
-        var rows: [J] = MILTests.all.map { t in
+        var rows: [J] = c.allTests.map { t in
             box("horizontal", [
                 text(t.short, ["size": "sm", "color": textColor, "flex": 4]),
                 text(t.code, ["size": "xs", "color": gray, "flex": 2, "align": "center"]),

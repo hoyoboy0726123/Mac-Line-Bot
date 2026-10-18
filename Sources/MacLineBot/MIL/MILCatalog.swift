@@ -2,14 +2,14 @@ import Foundation
 
 // MARK: - 測試項目定義（MIL-STD-810H，條件取自華碩官方報告）
 
-struct MILProcedure: Identifiable, Hashable {
+struct MILProcedure: Identifiable, Hashable, Codable {
     var id: String       // 例如 "C1st"
     var label: String    // 例如 "基本寒冷儲存（C1）"
     var detail: String   // 例如 "-25～-33°C，7 天，不開機"
     var line: String { "\(label)：\(detail)" }
 }
 
-struct MILTestDef: Identifiable, Hashable {
+struct MILTestDef: Identifiable, Hashable, Codable {
     var id: String       // 例如 "cold"
     var code: String     // 例如 "502.7"
     var name: String     // 例如 "低溫測試（Method 502.7）"
@@ -105,7 +105,6 @@ struct MILModel: Identifiable, Codable, Hashable {
 
     func passes(_ test: String) -> [String] { passed[test] ?? [] }
     func described(_ test: String) -> [String] { describedOnly[test] ?? [] }
-    var passedTestCount: Int { MILTests.all.filter { !passes($0.id).isEmpty }.count }
 }
 
 struct MILFamily: Identifiable, Codable, Hashable {
@@ -118,6 +117,35 @@ struct MILCatalog: Codable {
     var models: [MILModel] = []
     var families: [MILFamily] = []
     var lastGenerated: Date?
+    /// 使用者改過的測試項目；nil 代表用內建的 13 項
+    var tests: [MILTestDef]?
+
+    var allTests: [MILTestDef] { tests ?? MILTests.all }
+    func test(_ id: String) -> MILTestDef? { allTests.first { $0.id == id } }
+    func passedTestCount(_ m: MILModel) -> Int { allTests.filter { !m.passes($0.id).isEmpty }.count }
+
+    /// 測試項目改過後，把機種身上已經不存在的程序清掉
+    mutating func pruneModels() {
+        let tests = allTests
+        for i in models.indices {
+            for (tid, procs) in models[i].passed {
+                let keep = tests.first { $0.id == tid }.map { t in procs.filter { p in t.procedures.contains { $0.id == p } } } ?? []
+                models[i].passed[tid] = keep.isEmpty ? nil : keep
+            }
+            for (tid, procs) in models[i].describedOnly {
+                let keep = tests.first { $0.id == tid }.map { t in procs.filter { p in t.procedures.contains { $0.id == p } } } ?? []
+                models[i].describedOnly[tid] = keep.isEmpty ? nil : keep
+            }
+        }
+    }
+
+    /// 第一次修改測試項目時，把內建的 13 項複製一份
+    mutating func editTests(_ body: (inout [MILTestDef]) -> Void) {
+        var t = allTests
+        body(&t)
+        tests = t
+        pruneModels()
+    }
 
     func family(of model: MILModel) -> MILFamily? {
         guard !model.family.isEmpty else { return nil }

@@ -30,7 +30,16 @@ struct KnowledgeView: View {
         .sheet(item: $editingFAQ) { faq in
             FAQEditor(faq: faq) { saved in
                 app.updateSelected { d in
-                    if let i = d.faqs.firstIndex(where: { $0.id == saved.id }) { d.faqs[i] = saved } else { d.faqs.insert(saved, at: 0) }
+                    var saved = saved
+                    if let i = d.faqs.firstIndex(where: { $0.id == saved.id }) {
+                        // 改了自動產生的題目 → 標成「手動修改」，重新產生時保留你的版本（卡片不再適用，拿掉）
+                        let old = d.faqs[i]
+                        if old.keywords.contains(MILGenerator.tag), old.answer != saved.answer || old.question != saved.question {
+                            saved.keywords = saved.keywords.filter { $0 != MILGenerator.tag && $0 != MILGenerator.edited } + [MILGenerator.edited]
+                            saved.flex = nil
+                        }
+                        d.faqs[i] = saved
+                    } else { d.faqs.insert(saved, at: 0) }
                     // 從待補清單補成 FAQ 的，順手移除
                     d.pending.removeAll { KnowledgeRetriever.core($0.question) == KnowledgeRetriever.core(saved.question) }
                 }
@@ -71,6 +80,9 @@ struct KnowledgeView: View {
                             Text(faq.question).font(.headline)
                             if !faq.isEnabled { Tag(text: "停用", color: .gray) }
                             if faq.hitCount > 0 { Tag(text: "命中 \(faq.hitCount)", color: .teal) }
+                            if faq.keywords.contains(MILGenerator.tag) { Tag(text: "自動產生", color: .indigo) }
+                            if faq.keywords.contains(MILGenerator.edited) { Tag(text: "手動修改", color: .orange) }
+                            if faq.flex != nil { Tag(text: "卡片", color: .teal) }
                         }
                         Text(faq.answer).font(.callout).foregroundStyle(.secondary).lineLimit(3)
                         if !faq.keywords.isEmpty {
@@ -237,6 +249,10 @@ struct FAQEditor: View {
                 TextField("問題", text: $faq.question)
                 KeywordField(title: "關鍵字", keywords: $faq.keywords)
                 Text("關鍵字用「+」代表要同時出現，例如「P5+低溫」只會在顧客同時提到 P5 和低溫時命中").font(.caption).foregroundStyle(.secondary)
+                if faq.keywords.contains(MILGenerator.tag) {
+                    Text("這題是軍規機種自動產生的。改了之後會標成「手動修改」，之後按「產生知識庫」會保留你的版本（但不再自動更新，也不再用卡片呈現）。")
+                        .font(.caption).foregroundStyle(.orange)
+                }
                 Toggle("啟用", isOn: $faq.isEnabled)
             }
             Text("標準答案").font(.caption).foregroundStyle(.secondary)

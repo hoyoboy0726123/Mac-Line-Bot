@@ -11,7 +11,7 @@ enum MILReportParser {
         var text: String
     }
 
-    static func load(from url: URL) async throws -> Result {
+    static func load(from url: URL, tests: [MILTestDef] = MILTests.all) async throws -> Result {
         let data: Data
         if url.isFileURL {
             let access = url.startAccessingSecurityScopedResource()
@@ -28,15 +28,15 @@ enum MILReportParser {
             throw NSError(domain: "MIL", code: 2, userInfo: [NSLocalizedDescriptionKey: "不是可以讀取的 PDF"])
         }
         let pages = (0..<pdf.pageCount).compactMap { pdf.page(at: $0)?.string }
-        return parse(pages: pages)
+        return parse(pages: pages, tests: tests)
     }
 
     /// 有「Pass」的頁面是結果總表；沒有的是測試說明（只出現在說明裡的程序另外標示）
-    static func parse(pages: [String]) -> Result {
+    static func parse(pages: [String], tests: [MILTestDef] = MILTests.all) -> Result {
         let resultPages = pages.filter { $0.contains("Pass") }
         let descPages = pages.filter { !$0.contains("Pass") }
-        let passed = section(resultPages.joined(separator: "\n"))
-        var described = section(descPages.joined(separator: "\n"))
+        let passed = section(resultPages.joined(separator: "\n"), tests: tests)
+        var described = section(descPages.joined(separator: "\n"), tests: tests)
         for (test, procs) in described {
             let rest = procs.filter { !(passed[test] ?? []).contains($0) }
             described[test] = rest.isEmpty ? nil : rest
@@ -53,7 +53,7 @@ enum MILReportParser {
         }
     }
 
-    private static func section(_ raw: String) -> [String: [String]] {
+    private static func section(_ raw: String, tests: [MILTestDef]) -> [String: [String]] {
         let text = raw.replacingOccurrences(of: "\u{2010}", with: "-").replacingOccurrences(of: "\u{2013}", with: "-")
             .replacingOccurrences(of: "Procedure1", with: "Procedure 1")
         let ns = text as NSString
@@ -69,7 +69,7 @@ enum MILReportParser {
                 .components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }.joined(separator: " ")
         }
 
-        for (m, loc) in regexMatches("Method\\s*(\\d{3}\\.\\d)\\s*-?\\s*Procedure\\s*([IV]+(?:-[ABC])?|1)\\b\\s*(?:\\((A1|A2|C1|C2)\\))?", in: text) {
+        for (m, loc) in regexMatches("Method\\s*(\\d{3}\\.\\d)\\s*-?\\s*Procedure\\s*([IVX]+(?:-[ABC])?|\\d)\\b\\s*(?:\\((A1|A2|C1|C2)\\))?", in: text) {
             let method = m[1], proc = m[2], explicit = m[3]
             let ctx = context(loc)
             switch method {
@@ -105,7 +105,14 @@ enum MILReportParser {
                 }
             case "524.1": add("freeze", "III")
             case "528.1": add("ship", "1")
-            default: break
+            default:
+                // 使用者自己新增的測試項目：Method 編號相同就勾選；程序代號對得上就勾那一個，只有一個程序就勾它
+                for t in tests where t.code == method && MILTests.test(t.id) == nil {
+                    let id = proc.replacingOccurrences(of: "-", with: "")
+                    if let p = t.procedures.first(where: { $0.id == proc || $0.id == id }) ?? (t.procedures.count == 1 ? t.procedures.first : nil) {
+                        add(t.id, p.id)
+                    }
+                }
             }
         }
         // 振動用表號：Table 514.8C-I / C-IV / C-VI / C-VII、Figure 514.8E-1
@@ -114,7 +121,8 @@ enum MILReportParser {
 
         // 依測試定義的順序排好
         for (test, procs) in passed {
-            if let def = MILTests.test(test) { passed[test] = def.procedures.map(\.id).filter { procs.contains($0) } }
+            let ordered = tests.first { $0.id == test }.map { def in def.procedures.map(\.id).filter { procs.contains($0) } } ?? []
+            passed[test] = ordered.isEmpty ? nil : ordered
         }
         return passed
     }
