@@ -246,6 +246,17 @@ final class AppState {
         if settings.autoStart, accounts.contains(where: \.hasCredentials) {
             startTunnel()
         }
+        Task {
+            // 一次性升級：舊的軍規 FAQ 沒有卡片，自動重新產生一次
+            if !UserDefaults.standard.bool(forKey: "flexUpgradeDone") {
+                for acc in accounts where milCatalogs[acc.id] != nil {
+                    settings.selectedAccountId = acc.id
+                    if milNeedsRegenerate { await generateMILKnowledge() }
+                }
+                UserDefaults.standard.set(true, forKey: "flexUpgradeDone")
+            }
+            await ensureRichMenus()
+        }
         timer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.tick() }
         }

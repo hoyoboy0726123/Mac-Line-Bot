@@ -154,6 +154,13 @@ struct LineAPI {
         return id
     }
 
+    /// 解除個別使用者身上的選單（最多 500 人一次），他們就會看到預設選單
+    func unlinkRichMenus(userIds: [String]) async throws {
+        for start in stride(from: 0, to: userIds.count, by: 500) {
+            try await call("POST", "/v2/bot/richmenu/bulk/unlink", body: ["userIds": Array(userIds[start..<min(start + 500, userIds.count)])])
+        }
+    }
+
     func setDefaultRichMenu(_ id: String) async throws { try await call("POST", "/v2/bot/user/all/richmenu/\(id)") }
     func deleteRichMenu(_ id: String) async throws { try await call("DELETE", "/v2/bot/richmenu/\(id)") }
 

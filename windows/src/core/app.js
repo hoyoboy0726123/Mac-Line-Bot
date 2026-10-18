@@ -315,6 +315,7 @@ class App extends EventEmitter {
     this.refreshOllama().catch(() => {});
     if (this.settings.autoStart && this.accounts.some(hasCredentials)) this.startTunnel();
     this.timer = setInterval(() => this.tick(), 30000);
+    this.ensureRichMenus().catch(() => {});
   }
 
   startTunnel() {
@@ -476,6 +477,38 @@ class App extends EventEmitter {
         this.accountLog(id, `已推播通知給 ...${suffix(owner, 6)}`);
       } catch (e) {
         this.accountLog(id, 'error', `推播失敗：${e.message}`);
+      }
+    }
+  }
+
+  /// 這個帳號認識的所有 LINE 使用者（顧客 + 綁定的店家）
+  knownUserIds(id) {
+    const a = this.account(id);
+    return [...new Set([...Object.keys((this.data[id] || {}).conversations || {}), ...((a && a.ownerUserIds) || [])])];
+  }
+
+  /// 啟動時：LINE 上的預設選單不是我們的，就自動套用並取代舊選單
+  async ensureRichMenus() {
+    const richmenu = require('./richmenu');
+    const waits = [30, 120, 300, 600, 1200];
+    for (const a of this.accounts.filter((x) => hasCredentials(x) && x.isEnabled)) {
+      const api = new LineAPI(a.channelAccessToken);
+      // LINE 的選單 API 有頻率限制（429），隔一段時間再試
+      for (let attempt = 1; attempt <= waits.length + 1; attempt++) {
+        try {
+          if (richmenu.isDone(await richmenu.status(api))) break;
+          const r = await richmenu.apply(api, this.knownUserIds(a.id));
+          this.accountLog(a.id, `已自動套用圖文選單${r.deleted.length ? `，取代舊選單：${r.deleted.join('、')}` : ''}`);
+          break;
+        } catch (e) {
+          if (e.status === 429 && attempt <= waits.length) {
+            this.accountLog(a.id, `LINE 選單 API 忙碌中（${e.message}），${waits[attempt - 1]} 秒後重試`);
+            await sleep(waits[attempt - 1] * 1000);
+            continue;
+          }
+          this.accountLog(a.id, 'warning', `自動套用圖文選單失敗：${e.message}（可到 LINE 連線頁手動套用）`);
+          break;
+        }
       }
     }
   }

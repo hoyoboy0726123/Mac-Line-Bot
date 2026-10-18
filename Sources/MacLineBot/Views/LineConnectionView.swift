@@ -239,7 +239,7 @@ struct LineConnectionView: View {
     private func applyMenu(_ account: BotAccount) async {
         applying = true
         do {
-            let deleted = try await RichMenu.apply(LineAPI(token: account.channelAccessToken))
+            let deleted = try await RichMenu.apply(LineAPI(token: account.channelAccessToken), userIds: app.knownUserIds(account.id))
             app.accountLog(account.id, "已套用圖文選單" + (deleted.isEmpty ? "" : "，取代舊選單：" + deleted.joined(separator: "、")))
             await loadMenus(account)
         } catch {

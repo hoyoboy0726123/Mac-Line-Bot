@@ -43,9 +43,15 @@ function definition() {
 
 const imagePath = () => path.join(__dirname, 'assets', `richmenu-${edition.edition === 'mil' ? 'mil' : 'base'}.png`);
 
+/// 錯誤訊息加上是哪一步失敗
+async function step(name, work) {
+  try { return await work(); } catch (e) { e.message = `${name}：${e.message}`; throw e; }
+}
+
 /// 目前的選單狀況
 async function status(api) {
-  const [list, def] = await Promise.all([api.richMenuList(), api.defaultRichMenu()]);
+  const list = await step('讀取選單清單', () => api.richMenuList());
+  const def = await step('讀取預設選單', () => api.defaultRichMenu());
   return {
     defaultId: def,
     menus: list.map((m) => ({
@@ -56,23 +62,32 @@ async function status(api) {
   };
 }
 
-/// 套用我們的選單並刪掉其他選單
-async function apply(api) {
-  const id = await api.createRichMenu(definition());
-  try {
-    await api.uploadRichMenuImage(id, fs.readFileSync(imagePath()));
-    await api.setDefaultRichMenu(id);
-  } catch (e) {
-    await api.deleteRichMenu(id).catch(() => {});
-    throw e;
+/// 已經完全換好：只剩一個選單，是我們的、而且是預設
+const isDone = (st) => st.menus.length === 1 && st.menus[0].ours && st.menus[0].isDefault;
+
+/// 套用我們的選單並刪掉其他選單；userIds＝已知的顧客與店家，解除舊專案綁在他們身上的個別選單
+async function apply(api, userIds = []) {
+  // 上次已經設好預設選單（只是舊選單還沒刪完）就沿用，不重複建立
+  const st = await status(api);
+  let id = (st.menus.find((m) => m.ours && m.isDefault) || {}).id;
+  if (!id) {
+    id = await step('建立選單', () => api.createRichMenu(definition()));
+    try {
+      await step('上傳圖片', () => api.uploadRichMenuImage(id, fs.readFileSync(imagePath())));
+      await step('設為預設', () => api.setDefaultRichMenu(id));
+    } catch (e) {
+      await api.deleteRichMenu(id).catch(() => {});
+      throw e;
+    }
   }
+  if (userIds.length) await step('解除個別選單', () => api.unlinkRichMenus(userIds));
   const deleted = [];
-  for (const m of await api.richMenuList()) {
+  for (const m of await step('讀取選單清單', () => api.richMenuList())) {
     if (m.richMenuId === id) continue;
-    await api.deleteRichMenu(m.richMenuId);
+    await step('刪除舊選單', () => api.deleteRichMenu(m.richMenuId));
     deleted.push(m.name || m.richMenuId);
   }
   return { id, deleted };
 }
 
-module.exports = { NAME, BUTTONS, buttons, definition, imagePath, status, apply };
+module.exports = { NAME, BUTTONS, buttons, definition, imagePath, status, apply, isDone };
