@@ -232,7 +232,7 @@ async function handleAPI(app, method, path, q, body, ctx) {
       const a = app.account(body.id || id);
       if (!a || !hasCredentials(a)) return fail('尚未設定 LINE 帳號');
       try {
-        const r = await require('./richmenu').apply(new LineAPI(a.channelAccessToken));
+        const r = await require('./richmenu').apply(new LineAPI(a.channelAccessToken), app.knownUserIds(a.id));
         app.accountLog(a.id, `已套用圖文選單${r.deleted.length ? `，取代舊選單：${r.deleted.join('、')}` : ''}`);
         return ok(r);
       } catch (e) {

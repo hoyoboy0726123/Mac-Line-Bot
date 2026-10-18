@@ -85,7 +85,11 @@ class LineAPI {
     try { return (await this.call('GET', '/v2/bot/user/all/richmenu')).richMenuId || null; } catch (e) { if (e.status === 404) return null; throw e; }
   }
   createRichMenu(def) { return this.call('POST', '/v2/bot/richmenu', def).then((o) => o.richMenuId); }
-  setDefaultRichMenu(id) { return this.call('POST', `/v2/bot/user/all/richmenu/${id}`); }
+  /// 解除個別使用者身上的選單（最多 500 人一次），他們就會看到預設選單
+  async unlinkRichMenus(userIds) {
+    for (let i = 0; i < userIds.length; i += 500) await this.call('POST', '/v2/bot/richmenu/bulk/unlink', { userIds: userIds.slice(i, i + 500) });
+  }
+    setDefaultRichMenu(id) { return this.call('POST', `/v2/bot/user/all/richmenu/${id}`); }
   deleteRichMenu(id) { return this.call('DELETE', `/v2/bot/richmenu/${id}`); }
   async uploadRichMenuImage(id, png) {
     const res = await fetch(`${DATA_BASE()}/v2/bot/richmenu/${id}/content`, {
