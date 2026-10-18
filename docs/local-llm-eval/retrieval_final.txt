@@ -1,0 +1,27 @@
+##### STRIP=
+BIGRAM TOP1 10/10 TOP3 10/10
+## quentinz/bge-large-zh-v1.5 dim=1024 chunks=26 embed_all=0.87s
+🟡 摔壞了保固有賠嗎 | Method 516.8 衝擊 Shock (0.386) / 軍規測試 注意事項 免責聲明 保固(0.359) / Method 516.8 衝擊 Shock (0.334)
+TOP1 9/10  TOP3 10/10  avg query 18 ms
+## bge-m3 dim=1024 chunks=26 embed_all=0.72s
+TOP1 10/10  TOP3 10/10  avg query 32 ms
+## qwen3-embedding:0.6b dim=1024 chunks=26 embed_all=1.32s
+❌ 摔壞了保固有賠嗎 | Method 516.8 衝擊 Shock (0.516) / Method 516.8 衝擊 Shock (0.489) / Method 516.8 衝擊 Shock (0.464)
+TOP1 9/10  TOP3 9/10  avg query 28 ms
+## qwen3-embedding:8b dim=4096 chunks=26 embed_all=13.76s
+🟡 摔壞了保固有賠嗎 | Method 516.8 衝擊 Shock (0.540) / 軍規測試 注意事項 免責聲明 保固(0.516) / Method 516.8 衝擊 Shock (0.483)
+TOP1 9/10  TOP3 10/10  avg query 146 ms
+##### STRIP=1
+BIGRAM TOP1 8/10 TOP3 8/10
+## quentinz/bge-large-zh-v1.5 dim=1024 chunks=26 embed_all=0.75s
+🟡 摔壞了保固有賠嗎 | Method 516.8 衝擊 Shock (0.370) / 軍規測試 注意事項 免責聲明 保固(0.359) / Method 516.8 衝擊 Shock (0.320)
+🟡 開車載著一直震動可以嗎 | Method 514.8 振動 Vibrat(0.498) / Method 514.8 振動 Vibrat(0.470) / Method 516.8 衝擊 Shock (0.451)
+TOP1 8/10  TOP3 10/10  avg query 18 ms
+## bge-m3 dim=1024 chunks=26 embed_all=0.64s
+TOP1 10/10  TOP3 10/10  avg query 32 ms
+## qwen3-embedding:0.6b dim=1024 chunks=26 embed_all=1.24s
+❌ 摔壞了保固有賠嗎 | Method 516.8 衝擊 Shock (0.499) / Method 516.8 衝擊 Shock (0.470) / Method 516.8 衝擊 Shock (0.456)
+TOP1 9/10  TOP3 9/10  avg query 29 ms
+## qwen3-embedding:8b dim=4096 chunks=26 embed_all=13.14s
+🟡 坐飛機帶著沒問題吧 | Method 511.7 爆炸性環境 Exp(0.399) / Method 500.6 低氣壓 高海拔 L(0.397) / ExpertBook B1 第 12 代 B(0.394)
+TOP1 9/10  TOP3 10/10  avg query 146 ms
