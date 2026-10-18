@@ -6,6 +6,8 @@ const { makeFAQ, makeDoc } = require('../models');
 const C = require('./catalog');
 const F = require('./flex');
 
+/// 產生的格式改變時加 1，App 啟動時會自動重新產生（2 = 卡片 + 兩步選比較）
+const VERSION = 2;
 const TAG = '#MIL自動產生';
 const DOC_TITLE = '華碩商用筆電 MIL-STD-810H 軍規測試（自動產生）';
 const NOTE = '※ 以華碩官方測試報告為準';
@@ -185,11 +187,16 @@ function faqs(c) {
       out.push(withFlex(faq(`${a.code} 和 ${b.code} 比較`, compare(c, a, b), combos(entityAliases(c, a), entityAliases(c, b))), F.compare(c, a, b)));
     }
   }
-  // 圖文選單「比較型號」：用快速選項選兩台
+  // 圖文選單「比較型號」：兩步選，先選第一台、再選要比的另一台
   if (c.models.length >= 2) {
-    const f = faq('比較型號', '想比較哪兩台呢？點下面的選項，或直接輸入例如「P5 跟 B5 差在哪」🙂', ['比較型號', '型號比較', '比較機種', '機種比較', '比一比']);
-    f.quickReplies = F.comparePairs(c);
+    const f = faq('比較型號', '想比較哪兩台呢？先選第一台 👇\n也可以直接輸入例如「P5 跟 B5 差在哪」🙂', ['比較型號', '型號比較', '比較機種', '機種比較', '比一比']);
+    f.quickReplies = F.compareStart(c);
     out.push(f);
+    for (const m of c.models.slice(0, 13)) {
+      const step = faq(`比較 ${F.pairLabel(c, m)}`, `要拿 ${m.display} 跟哪一台比較呢？👇`, []);
+      step.quickReplies = F.compareWith(c, m);
+      out.push(step);
+    }
   }
   // 6) 一次列出全部條件
   out.push(faq('所有測試項目的詳細條件', allConditions(c), [
@@ -297,4 +304,4 @@ function doc(c) {
 
 const generate = (c) => ({ faqs: faqs(c), doc: doc(c) });
 
-module.exports = { TAG, DOC_TITLE, NOTE, generate, faqs, doc };
+module.exports = { VERSION, TAG, DOC_TITLE, NOTE, generate, faqs, doc };

@@ -110,7 +110,14 @@ async function ask(slug, text) {
   const rows = m.type === 'flex' ? JSON.stringify(m.contents) : '';
   check(rows.includes('淋雨') && rows.includes('B9400CVA'), 'B9 跟 P5 差在哪 → 比較表卡片有「淋雨」那一列');
   m = await ask(slug, '比較型號');
-  check(m.quickReply && m.quickReply.items.length === 13, `比較型號 → 快速選項 ${m.quickReply ? m.quickReply.items.length : 0} 個（7 款機種有 21 組，LINE 最多顯示 13 個）`);
+  const firsts = m.quickReply ? m.quickReply.items.map((x) => x.action.text) : [];
+  check(firsts.length === 7 && firsts.includes('比較 B9400CVA'), `比較型號 → 第一步 ${firsts.length} 個機種可選（含 B9400CVA）`);
+  m = await ask(slug, '比較 B9400CVA');
+  const seconds = m.quickReply ? m.quickReply.items.map((x) => x.action.text) : [];
+  check(seconds.length === 6 && seconds.includes('B9400CVA vs L1400'), `比較 B9400CVA → 第二步 ${seconds.length} 台可選`);
+  m = await ask(slug, 'B9400CVA vs L1400');
+  const title = m.type === 'flex' ? m.contents.header.contents[1].text : '';
+  check(/B9400CVA/.test(title) && /L1400/.test(title), `B9400CVA vs L1400 → 比較表卡片「${title}」（以前 13 個選項裝不下這組）`);
   m = await ask(slug, '放冷凍庫會壞嗎');
   check((m.altText || m.text || '').includes('低溫測試'), '放冷凍庫會壞嗎 → 低溫測試（修改過的內建項目）');
   m = await ask(slug, 'B5TEST 通過哪些測試');

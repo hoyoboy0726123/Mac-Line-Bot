@@ -3,6 +3,8 @@ import Foundation
 /// 由「軍規機種」資料自動產生 FAQ 與背景知識文件。
 /// 規則跟 knowledge/build_mil810h_faq.py 相同：每個型號 × 每個測試、系列、測試總覽、型號總表、兩兩比較、全部條件、一般問題。
 enum MILGenerator {
+    /// 產生的格式改變時加 1，App 啟動時會自動重新產生（2 = 卡片 + 兩步選比較）
+    static let version = 2
     static let tag = "#MIL自動產生"
     /// 自動產生的題目被手動改過後換成這個標記，重新產生時保留，不會被覆蓋
     static let edited = "#手動修改"
@@ -208,11 +210,16 @@ enum MILGenerator {
                 out.append(withFlex(faq("\(a.code) 和 \(b.code) 比較", compare(c, a, b), combos(entityAliases(c, a), entityAliases(c, b))), MILFlex.compare(c, a, b)))
             }
         }
-        // 圖文選單「比較型號」：用快速選項選兩台
+        // 圖文選單「比較型號」：兩步選，先選第一台、再選要比的另一台
         if c.models.count >= 2 {
-            var f = faq("比較型號", "想比較哪兩台呢？點下面的選項，或直接輸入例如「P5 跟 B5 差在哪」🙂", ["比較型號", "型號比較", "比較機種", "機種比較", "比一比"])
-            f.quickReplies = MILFlex.comparePairs(c)
+            var f = faq("比較型號", "想比較哪兩台呢？先選第一台 👇\n也可以直接輸入例如「P5 跟 B5 差在哪」🙂", ["比較型號", "型號比較", "比較機種", "機種比較", "比一比"])
+            f.quickReplies = MILFlex.compareStart(c)
             out.append(f)
+            for m in c.models.prefix(13) {
+                var step = faq("比較 \(MILFlex.pairLabel(c, m))", "要拿 \(m.display) 跟哪一台比較呢？👇", [])
+                step.quickReplies = MILFlex.compareWith(c, m)
+                out.append(step)
+            }
         }
         // 6) 一次列出全部條件
         out.append(faq("所有測試項目的詳細條件", allConditions(c), [

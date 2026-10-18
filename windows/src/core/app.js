@@ -315,7 +315,7 @@ class App extends EventEmitter {
     this.refreshOllama().catch(() => {});
     if (this.settings.autoStart && this.accounts.some(hasCredentials)) this.startTunnel();
     this.timer = setInterval(() => this.tick(), 30000);
-    this.ensureRichMenus().catch(() => {});
+    this.upgradeMIL().then(() => this.ensureRichMenus()).catch(() => {});
   }
 
   startTunnel() {
@@ -546,6 +546,16 @@ class App extends EventEmitter {
       }
     }
     this.accountLog(id, bad ? 'warning' : 'info', bad ? `LINE 卡片檢查：${bad} 張有問題，會改用文字回覆` : `LINE 卡片檢查通過（${faqs.length} 張）`);
+  }
+
+  /// 產生器格式升級時自動重新產生一次（只處理已經產生過的帳號）
+  async upgradeMIL() {
+    if (!isMIL || (this.settings.milGeneratorVersion || 0) >= mil().index.VERSION) return;
+    for (const a of this.accounts) {
+      const c = this.milCatalogs[a.id];
+      if (c && c.lastGenerated && this.milNeedsRegenerate(a.id)) await this.generateMILKnowledge(a.id);
+    }
+    this.updateSettings({ milGeneratorVersion: mil().index.VERSION });
   }
 
   milNeedsRegenerate(id) {

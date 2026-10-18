@@ -15,7 +15,7 @@ const { defaultAccountData, makeFAQ, makeDoc } = require('../src/core/models');
 
 const fixtures = path.join(__dirname, 'fixtures');
 
-test('產生器 FAQ 跟 Mac 版完全相同（104 題，含 Flex 卡片與快速選項）', () => {
+test('產生器 FAQ 跟 Mac 版完全相同（109 題，含 Flex 卡片與快速選項）', () => {
   const golden = JSON.parse(fs.readFileSync(path.join(fixtures, 'faqs_swift.json'), 'utf8'));
   const faqs = G.faqs(C.seedCatalog());
   assert.strictEqual(faqs.length, golden.length);
@@ -89,9 +89,9 @@ test('一鍵產生：只替換自動產生的 FAQ，保留手動 FAQ', () => {
   d.docs = [makeDoc('ASUS商用筆電-MIL-STD-810H軍規測試', '舊文件'), makeDoc('菜單', '咖啡')];
   assert.strictEqual(MIL.needsRegenerate(cat, d), true);
   const r = MIL.applyGenerated(d, cat);
-  assert.strictEqual(r.faqs, 104);
+  assert.strictEqual(r.faqs, 109);
   assert.strictEqual(r.removed, 1);
-  assert.strictEqual(d.faqs.length, 105);
+  assert.strictEqual(d.faqs.length, 110);
   assert.strictEqual(d.faqs[0].question, '營業時間');
   assert.deepStrictEqual(d.docs.map((x) => x.title), [G.DOC_TITLE, '菜單']);
   cat.lastGenerated = '2026-10-18T00:00:00Z';
@@ -100,7 +100,7 @@ test('一鍵產生：只替換自動產生的 FAQ，保留手動 FAQ', () => {
   assert.strictEqual(MIL.needsRegenerate(cat, d), true);
   // 再產生一次不會越來越多
   MIL.applyGenerated(d, cat);
-  assert.strictEqual(d.faqs.length, 105);
+  assert.strictEqual(d.faqs.length, 110);
   assert.strictEqual(d.docs.length, 2);
 });
 
@@ -142,10 +142,22 @@ test('卡片按鈕與「比較型號」快速選項都對到正確的 FAQ', () =
       assert.strictEqual((route(b.action.text) || {}).question, b.action.text, `「${f.question}」的按鈕「${b.action.label}」`);
     }
   }
-  const pick = faqs.find((f) => f.question === '比較型號');
-  assert.strictEqual(pick.quickReplies.length, 10);
-  for (const q of pick.quickReplies) assert.ok((route(q) || {}).question.endsWith('比較'), q);
-  assert.strictEqual(route('比較型號').question, '比較型號');
+  // 兩步選：比較型號 → 選第一台 → 選另一台 → 比較表
+  const pick = route('比較型號');
+  assert.strictEqual(pick.question, '比較型號');
+  assert.strictEqual(pick.quickReplies.length, 5);
+  let pairs = 0;
+  for (const first of pick.quickReplies) {
+    const step = route(first);
+    assert.strictEqual(step.question, first, `第一步「${first}」`);
+    assert.strictEqual(step.quickReplies.length, 4);
+    for (const second of step.quickReplies) {
+      const hit = route(second);
+      assert.ok(hit && hit.question.endsWith('比較') && hit.flex, `第二步「${second}」→ ${hit && hit.question}`);
+      pairs++;
+    }
+  }
+  assert.strictEqual(pairs, 20);
 });
 
 test('自訂測試項目：跟 Mac 版產生的 FAQ、卡片、背景知識完全相同', () => {

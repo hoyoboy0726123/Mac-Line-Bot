@@ -247,13 +247,15 @@ final class AppState {
             startTunnel()
         }
         Task {
-            // 一次性升級：舊的軍規 FAQ 沒有卡片，自動重新產生一次
-            if !UserDefaults.standard.bool(forKey: "flexUpgradeDone") {
+            // 產生器格式升級（加卡片、兩步選比較…）時自動重新產生一次
+            if UserDefaults.standard.integer(forKey: "milGeneratorVersion") < MILGenerator.version {
+                let selected = settings.selectedAccountId
                 for acc in accounts where milCatalogs[acc.id] != nil {
                     settings.selectedAccountId = acc.id
                     if milNeedsRegenerate { await generateMILKnowledge() }
                 }
-                UserDefaults.standard.set(true, forKey: "flexUpgradeDone")
+                settings.selectedAccountId = selected
+                UserDefaults.standard.set(MILGenerator.version, forKey: "milGeneratorVersion")
             }
             await ensureRichMenus()
         }
