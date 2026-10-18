@@ -50,6 +50,13 @@ enum MILGenerator {
         return FAQItem(question: q, answer: a, keywords: keys)
     }
 
+    /// 附上 LINE Flex 卡片（JSON 字串）
+    private static func withFlex(_ f: FAQItem, _ card: [String: Any]) -> FAQItem {
+        var x = f
+        x.flex = MILFlex.json(card)
+        return x
+    }
+
     // MARK: - 答案
 
     private static func modelTestAnswer(_ c: MILCatalog, _ m: MILModel, _ t: MILTestDef) -> String {
@@ -137,7 +144,7 @@ enum MILGenerator {
         var notes: [String] = []
         for m in [a, b] {
             for t in MILTests.all where !m.described(t.id).isEmpty {
-                notes.append("\(m.code) 的測試說明另列\(t.short)（\(labels(t, m.described(t.id))))")
+                notes.append("\(m.code) 的測試說明另列\(t.short)（\(labels(t, m.described(t.id)))）")
             }
         }
         if !notes.isEmpty { out.append("📄 " + notes.joined(separator: "；")) }
@@ -182,12 +189,12 @@ enum MILGenerator {
         // 3) 每個測試總覽（沙漠交給「在沙漠可以用嗎」）
         for t in tests {
             let keys = t.aliases.filter { $0 != "幾度" && $0 != "沙漠" && $0.count >= 2 }
-            out.append(faq("\(t.short)測試怎麼做", testOverview(c, t), keys))
+            out.append(withFlex(faq("\(t.short)測試怎麼做", testOverview(c, t), keys), MILFlex.test(c, t)))
         }
         // 4) 每個型號 / 系列通過哪些測試
         let summaryWords = ["測試項目", "哪些測試", "通過", "軍規", "810", "幾項", "耐用"]
         for m in c.models where !m.aliases.isEmpty {
-            out.append(faq("\(m.code) 通過哪些測試", modelSummary(m), combos(m.aliases, summaryWords)))
+            out.append(withFlex(faq("\(m.code) 通過哪些測試", modelSummary(m), combos(m.aliases, summaryWords)), MILFlex.model(c, m)))
         }
         for f in c.multiFamilies {
             out.append(faq("\(f.name) 通過哪些測試", familySummary(c, f), combos(f.aliases, summaryWords)))
@@ -196,8 +203,14 @@ enum MILGenerator {
         for i in c.models.indices {
             for j in c.models.indices where j > i {
                 let a = c.models[i], b = c.models[j]
-                out.append(faq("\(a.code) 和 \(b.code) 比較", compare(a, b), combos(entityAliases(c, a), entityAliases(c, b))))
+                out.append(withFlex(faq("\(a.code) 和 \(b.code) 比較", compare(a, b), combos(entityAliases(c, a), entityAliases(c, b))), MILFlex.compare(c, a, b)))
             }
+        }
+        // 圖文選單「比較型號」：用快速選項選兩台
+        if c.models.count >= 2 {
+            var f = faq("比較型號", "想比較哪兩台呢？點下面的選項，或直接輸入例如「P5 跟 B5 差在哪」🙂", ["比較型號", "型號比較", "比較機種", "機種比較", "比一比"])
+            f.quickReplies = MILFlex.comparePairs(c)
+            out.append(f)
         }
         // 6) 一次列出全部條件
         out.append(faq("所有測試項目的詳細條件", allConditions(c), [
@@ -282,8 +295,8 @@ enum MILGenerator {
         for t in MILTests.all {
             let title = "Method \(t.code) \(t.short) \(t.name)（\(t.aliases.filter { !$0.contains(".") }.prefix(8).joined(separator: " "))）"
             paras.append(title + "\n條件：" + t.procedures.map(\.line).joined(separator: "；") + "。")
-            let passed = passedModels(c, t).map { "\($0.code)（\(labels(t, $0.passes(t.id))))" }
-            let described = c.models.filter { !$0.described(t.id).isEmpty }.map { "\($0.code)（\(labels(t, $0.described(t.id))))" }
+            let passed = passedModels(c, t).map { "\($0.code)（\(labels(t, $0.passes(t.id)))）" }
+            let described = c.models.filter { !$0.described(t.id).isEmpty }.map { "\($0.code)（\(labels(t, $0.described(t.id)))）" }
             let missing = c.models.filter { $0.passes(t.id).isEmpty && $0.described(t.id).isEmpty }.map(\.code)
             var body = "Method \(t.code) \(t.short)測試 通過型號\n"
             body += passed.isEmpty ? "結果總表中沒有型號列出此項。" : "通過：" + passed.joined(separator: "、") + "。"
@@ -294,7 +307,7 @@ enum MILGenerator {
         }
 
         for m in c.models {
-            let passed = MILTests.all.filter { !m.passes($0.id).isEmpty }.map { "\($0.code) \($0.short)（\(labels($0, m.passes($0.id))))" }
+            let passed = MILTests.all.filter { !m.passes($0.id).isEmpty }.map { "\($0.code) \($0.short)（\(labels($0, m.passes($0.id)))）" }
             let missing = MILTests.all.filter { m.passes($0.id).isEmpty }.map(\.short)
             var p = "\(m.display) 通過的軍規測試\(m.aliases.isEmpty ? "" : "（" + m.aliases.joined(separator: " ") + "）")\n"
             p += passed.joined(separator: "、") + "。"

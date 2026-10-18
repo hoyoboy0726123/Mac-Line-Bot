@@ -52,6 +52,10 @@ struct RulesView: View {
                     }
                     .pickerStyle(.segmented)
                     Toggle("可以使用表情符號", isOn: app.binding(\.rules.useEmoji))
+                    Toggle("用卡片呈現（Flex Message）：型號比較表、測試條件、型號總覽", isOn: Binding(
+                        get: { app.selectedData.rules.useFlex != false },
+                        set: { v in app.updateSelected { $0.rules.useFlex = v } }
+                    ))
                     Stepper("回覆字數上限：\(app.selectedData.rules.maxReplyLength) 字", value: app.binding(\.rules.maxReplyLength), in: 50...400, step: 25)
                     LabeledTextArea(title: "加好友歡迎訊息", text: app.binding(\.rules.greetingMessage))
                     LabeledTextArea(title: "答不出來時的回覆（同時加入待補清單）", text: app.binding(\.rules.fallbackMessage))

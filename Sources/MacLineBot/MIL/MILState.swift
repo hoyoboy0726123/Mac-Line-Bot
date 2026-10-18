@@ -19,8 +19,9 @@ extension AppState {
     var milNeedsRegenerate: Bool {
         guard let id = selectedAccount?.id, let c = milCatalogs[id] else { return false }
         guard c.lastGenerated != nil else { return true }
-        let generated = Set(MILGenerator.faqs(c).map { $0.question + $0.answer })
-        let current = Set((data[id]?.faqs ?? []).filter { $0.keywords.contains(MILGenerator.tag) }.map { $0.question + $0.answer })
+        let sig: (FAQItem) -> String = { [$0.question, $0.answer, $0.flex ?? "", ($0.quickReplies ?? []).joined(separator: "|")].joined(separator: "\u{1}") }
+        let generated = Set(MILGenerator.faqs(c).map(sig))
+        let current = Set((data[id]?.faqs ?? []).filter { $0.keywords.contains(MILGenerator.tag) }.map(sig))
         return generated != current
     }
 
@@ -50,6 +51,7 @@ extension AppState {
         }
         updateMILCatalog { $0.lastGenerated = Date() }
         accountLog(id, "軍規知識庫已重新產生：\(out.faqs.count) 題 FAQ、背景知識 \(out.doc.content.components(separatedBy: "\n\n").count) 段（\(c.models.count) 款機種）")
+        Task { await validateFlex(id) }
         await buildVectorIndex()
         return MILGenerateResult(faqs: out.faqs.count, removed: removed, paragraphs: out.doc.content.components(separatedBy: "\n\n").count)
     }

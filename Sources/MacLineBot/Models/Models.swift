@@ -77,6 +77,10 @@ struct FAQItem: Identifiable, Codable, Hashable {
     var isEnabled: Bool = true
     var hitCount: Int = 0
     var updatedAt: Date = Date()
+    /// LINE Flex 卡片（JSON 字串，軍規產生器產生）
+    var flex: String?
+    /// 回答後顯示的快速選項
+    var quickReplies: [String]?
 }
 
 struct KnowledgeDoc: Identifiable, Codable, Hashable {
@@ -147,6 +151,8 @@ struct ReplyRules: Codable, Hashable {
     var pendingReminderMinutes: Int = 10
     var disconnectNotifyEnabled: Bool = true
     var notifyUnanswered: Bool = true
+    /// 有卡片的答案用 LINE Flex 卡片呈現（nil = 開啟；用 Optional 才能讀舊設定檔）
+    var useFlex: Bool?
 }
 
 // MARK: - 對話
@@ -180,6 +186,8 @@ struct ChatMessage: Identifiable, Codable, Hashable {
     var date: Date = Date()
     var source: ReplySource?
     var latency: Double?
+    /// 用 Flex 卡片送出
+    var card: Bool?
 }
 
 enum ConversationMode: String, Codable {

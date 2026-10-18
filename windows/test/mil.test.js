@@ -15,12 +15,15 @@ const { defaultAccountData, makeFAQ, makeDoc } = require('../src/core/models');
 
 const fixtures = path.join(__dirname, 'fixtures');
 
-test('產生器 FAQ 跟 Mac 版完全相同（103 題）', () => {
+test('產生器 FAQ 跟 Mac 版完全相同（104 題，含 Flex 卡片與快速選項）', () => {
   const golden = JSON.parse(fs.readFileSync(path.join(fixtures, 'faqs_swift.json'), 'utf8'));
   const faqs = G.faqs(C.seedCatalog());
   assert.strictEqual(faqs.length, golden.length);
   faqs.forEach((f, i) => {
     assert.deepStrictEqual({ q: f.question, a: f.answer, k: f.keywords }, { q: golden[i].q, a: golden[i].a, k: golden[i].k }, `第 ${i + 1} 題`);
+    // 卡片 JSON 字串逐字相同（兩邊都排序 key）、快速選項相同
+    assert.strictEqual(f.flex || null, golden[i].flex || null, `第 ${i + 1} 題卡片`);
+    assert.deepStrictEqual(f.quickReplies || null, golden[i].qr || null, `第 ${i + 1} 題快速選項`);
   });
 });
 
@@ -86,9 +89,9 @@ test('一鍵產生：只替換自動產生的 FAQ，保留手動 FAQ', () => {
   d.docs = [makeDoc('ASUS商用筆電-MIL-STD-810H軍規測試', '舊文件'), makeDoc('菜單', '咖啡')];
   assert.strictEqual(MIL.needsRegenerate(cat, d), true);
   const r = MIL.applyGenerated(d, cat);
-  assert.strictEqual(r.faqs, 103);
+  assert.strictEqual(r.faqs, 104);
   assert.strictEqual(r.removed, 1);
-  assert.strictEqual(d.faqs.length, 104);
+  assert.strictEqual(d.faqs.length, 105);
   assert.strictEqual(d.faqs[0].question, '營業時間');
   assert.deepStrictEqual(d.docs.map((x) => x.title), [G.DOC_TITLE, '菜單']);
   cat.lastGenerated = '2026-10-18T00:00:00Z';
@@ -97,7 +100,7 @@ test('一鍵產生：只替換自動產生的 FAQ，保留手動 FAQ', () => {
   assert.strictEqual(MIL.needsRegenerate(cat, d), true);
   // 再產生一次不會越來越多
   MIL.applyGenerated(d, cat);
-  assert.strictEqual(d.faqs.length, 104);
+  assert.strictEqual(d.faqs.length, 105);
   assert.strictEqual(d.docs.length, 2);
 });
 
@@ -129,4 +132,18 @@ for (const [file, code] of Object.entries(pdfMap)) {
 
 test('PDF 解析：壞檔案給中文錯誤', async () => {
   await assert.rejects(P.load(Buffer.from('not a pdf')), /不是可以讀取的 PDF/);
+});
+
+test('卡片按鈕與「比較型號」快速選項都對到正確的 FAQ', () => {
+  const faqs = G.faqs(C.seedCatalog());
+  const route = (t) => R.matchFAQ(t, R.modelTokens(t).length >= 2 ? faqs.filter((f) => f.question.includes('比較')) : faqs);
+  for (const f of faqs.filter((x) => x.flex)) {
+    for (const b of (JSON.parse(f.flex).footer || { contents: [] }).contents) {
+      assert.strictEqual((route(b.action.text) || {}).question, b.action.text, `「${f.question}」的按鈕「${b.action.label}」`);
+    }
+  }
+  const pick = faqs.find((f) => f.question === '比較型號');
+  assert.strictEqual(pick.quickReplies.length, 10);
+  for (const q of pick.quickReplies) assert.ok((route(q) || {}).question.endsWith('比較'), q);
+  assert.strictEqual(route('比較型號').question, '比較型號');
 });

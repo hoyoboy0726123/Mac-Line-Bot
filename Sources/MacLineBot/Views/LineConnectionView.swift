@@ -8,6 +8,10 @@ struct LineConnectionView: View {
     @State private var message: String?
     @State private var busy = false
     @State private var installing = false
+    @State private var menus: [RichMenu.Menu]?
+    @State private var menuError: String?
+    @State private var applying = false
+    @State private var confirmMenu = false
 
     var body: some View {
         @Bindable var app = app
@@ -16,6 +20,7 @@ struct LineConnectionView: View {
                 credentialsCard(account)
                 tunnelCard
                 webhookCard(account)
+                richMenuCard(account)
                 bindCard(account)
             } else {
                 Card { EmptyStateView(icon: "link", title: "還沒有帳號", message: "先用設定精靈新增一個 LINE 官方帳號") }
@@ -170,6 +175,78 @@ struct LineConnectionView: View {
                 }
             }
         }
+    }
+
+    // MARK: 圖文選單
+
+    private func richMenuCard(_ account: BotAccount) -> some View {
+        let current = menus?.first(where: \.isDefault)
+        let others = menus?.filter { !$0.ours } ?? []
+        return Card {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text("圖文選單").font(.headline)
+                    Spacer()
+                    Button { Task { await loadMenus(account) } } label: { Image(systemName: "arrow.clockwise") }
+                        .buttonStyle(.borderless)
+                }
+                Text("LINE 聊天室下方的按鈕選單。套用後，顧客點按鈕就會送出對應的問題，由 FAQ 直接回答。")
+                    .font(.caption).foregroundStyle(.secondary)
+                if let image = NSImage(data: RichMenuImage.png) {
+                    Image(nsImage: image).resizable().aspectRatio(contentMode: .fit).frame(maxWidth: 520)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+                if menus != nil {
+                    if let current {
+                        Text("目前顯示：\(current.ours ? "我們的選單" : (current.name.isEmpty ? "未命名選單" : current.name))（\(current.buttons.joined(separator: "、"))）").font(.callout)
+                    } else {
+                        Text("目前沒有預設選單").font(.callout).foregroundStyle(.secondary)
+                    }
+                    if !others.isEmpty {
+                        Text("另有 \(others.count) 個舊選單（\(others.map { $0.name.isEmpty ? "未命名" : $0.name }.joined(separator: "、"))），套用時會一起取代")
+                            .font(.caption).foregroundStyle(.orange)
+                    }
+                }
+                if let menuError { Text(menuError).font(.caption).foregroundStyle(.red) }
+                HStack {
+                    Text("按鈕：" + RichMenu.buttons.map { "\($0.label)→「\($0.text)」" }.joined(separator: "　"))
+                        .font(.caption).foregroundStyle(.secondary)
+                    Spacer()
+                    Button(applying ? "套用中…" : (current?.ours == true ? "重新套用" : "套用我們的選單")) {
+                        if others.isEmpty { Task { await applyMenu(account) } } else { confirmMenu = true }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(applying || !account.hasCredentials)
+                }
+            }
+        }
+        .task(id: account.id) { await loadMenus(account) }
+        .confirmationDialog("用我們的選單取代 \(others.count) 個舊選單？", isPresented: $confirmMenu) {
+            Button("取代（舊選單會刪除）", role: .destructive) { Task { await applyMenu(account) } }
+        }
+    }
+
+    private func loadMenus(_ account: BotAccount) async {
+        guard account.hasCredentials else { return }
+        do {
+            menus = try await RichMenu.status(LineAPI(token: account.channelAccessToken))
+            menuError = nil
+        } catch {
+            menuError = error.localizedDescription
+        }
+    }
+
+    private func applyMenu(_ account: BotAccount) async {
+        applying = true
+        do {
+            let deleted = try await RichMenu.apply(LineAPI(token: account.channelAccessToken))
+            app.accountLog(account.id, "已套用圖文選單" + (deleted.isEmpty ? "" : "，取代舊選單：" + deleted.joined(separator: "、")))
+            await loadMenus(account)
+        } catch {
+            menuError = "套用失敗：\(error.localizedDescription)"
+            app.accountLog(account.id, .error, "套用圖文選單失敗：\(error.localizedDescription)")
+        }
+        applying = false
     }
 
     // MARK: 綁定

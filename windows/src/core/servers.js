@@ -202,6 +202,7 @@ class AdminServer {
     // 靜態檔案
     if (req.method === 'GET' && !p.startsWith('/api/')) {
       if (p === '/' || p === '/index.html') return this.sendFile(res, path.join(this.webRoot, 'index.html'), 'text/html; charset=utf-8');
+      if (p === '/richmenu.png') return this.sendFile(res, require('./richmenu').imagePath(), 'image/png');
       if (p === '/vendor/vue.js') return this.sendFile(res, this.vendor.vue, 'text/javascript; charset=utf-8');
       if (p.startsWith('/icons/') && /^[a-z0-9-]+\.svg$/.test(p.slice(7))) return this.sendFile(res, path.join(this.vendor.icons, p.slice(7)), 'image/svg+xml');
       const name = p.slice(1);

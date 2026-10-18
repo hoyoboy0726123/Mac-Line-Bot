@@ -4,12 +4,11 @@
 const { count } = require('../util');
 const { makeFAQ, makeDoc } = require('../models');
 const C = require('./catalog');
+const F = require('./flex');
 
 const TAG = '#MIL自動產生';
 const DOC_TITLE = '華碩商用筆電 MIL-STD-810H 軍規測試（自動產生）';
 const NOTE = '※ 以華碩官方測試報告為準';
-
-// 注意：有幾處結尾是半形「)」，跟 Mac 版 Swift 的輸出一致（golden 測試逐字比對）
 
 // MARK: 共用
 
@@ -42,6 +41,9 @@ function faq(q, a, k, general = false) {
   const keys = k.filter((x) => (seen.has(x) ? false : (seen.add(x), true))).concat(general ? ['#通用'] : [], [TAG]);
   return makeFAQ(q, a, keys);
 }
+
+/// 附上 LINE Flex 卡片（JSON 字串）
+const withFlex = (f, card) => { f.flex = F.json(card); return f; };
 
 // MARK: 答案
 
@@ -128,7 +130,7 @@ function compare(a, b) {
   const notes = [];
   for (const m of [a, b]) {
     for (const t of C.TESTS) {
-      if (C.described(m, t).length) notes.push(`${m.code} 的測試說明另列${t.short}（${labels(t, C.described(m, t))})`);
+      if (C.described(m, t).length) notes.push(`${m.code} 的測試說明另列${t.short}（${labels(t, C.described(m, t))}）`);
     }
   }
   if (notes.length) out.push('📄 ' + notes.join('；'));
@@ -168,20 +170,26 @@ function faqs(c) {
   // 3) 每個測試總覽（沙漠交給「在沙漠可以用嗎」）
   for (const t of tests) {
     const keys = t.aliases.filter((a) => a !== '幾度' && a !== '沙漠' && count(a) >= 2);
-    out.push(faq(`${t.short}測試怎麼做`, testOverview(c, t), keys));
+    out.push(withFlex(faq(`${t.short}測試怎麼做`, testOverview(c, t), keys), F.test(c, t)));
   }
   // 4) 每個型號 / 系列通過哪些測試
   const summaryWords = ['測試項目', '哪些測試', '通過', '軍規', '810', '幾項', '耐用'];
   for (const m of c.models) {
-    if (m.aliases.length) out.push(faq(`${m.code} 通過哪些測試`, modelSummary(m), combos(m.aliases, summaryWords)));
+    if (m.aliases.length) out.push(withFlex(faq(`${m.code} 通過哪些測試`, modelSummary(m), combos(m.aliases, summaryWords)), F.model(c, m)));
   }
   for (const f of C.multiFamilies(c)) out.push(faq(`${f.name} 通過哪些測試`, familySummary(c, f), combos(f.aliases, summaryWords)));
   // 5) 兩兩比較
   for (let i = 0; i < c.models.length; i++) {
     for (let j = i + 1; j < c.models.length; j++) {
       const a = c.models[i], b = c.models[j];
-      out.push(faq(`${a.code} 和 ${b.code} 比較`, compare(a, b), combos(entityAliases(c, a), entityAliases(c, b))));
+      out.push(withFlex(faq(`${a.code} 和 ${b.code} 比較`, compare(a, b), combos(entityAliases(c, a), entityAliases(c, b))), F.compare(c, a, b)));
     }
+  }
+  // 圖文選單「比較型號」：用快速選項選兩台
+  if (c.models.length >= 2) {
+    const f = faq('比較型號', '想比較哪兩台呢？點下面的選項，或直接輸入例如「P5 跟 B5 差在哪」🙂', ['比較型號', '型號比較', '比較機種', '機種比較', '比一比']);
+    f.quickReplies = F.comparePairs(c);
+    out.push(f);
   }
   // 6) 一次列出全部條件
   out.push(faq('所有測試項目的詳細條件', allConditions(c), [
@@ -261,8 +269,8 @@ function doc(c) {
   for (const t of C.TESTS) {
     const title = `Method ${t.code} ${t.short} ${t.name}（${t.aliases.filter((a) => !a.includes('.')).slice(0, 8).join(' ')}）`;
     paras.push(title + '\n條件：' + t.procedures.map(C.procLine).join('；') + '。');
-    const passed = passedModels(c, t).map((m) => `${m.code}（${labels(t, C.passes(m, t))})`);
-    const desc = c.models.filter((m) => C.described(m, t).length).map((m) => `${m.code}（${labels(t, C.described(m, t))})`);
+    const passed = passedModels(c, t).map((m) => `${m.code}（${labels(t, C.passes(m, t))}）`);
+    const desc = c.models.filter((m) => C.described(m, t).length).map((m) => `${m.code}（${labels(t, C.described(m, t))}）`);
     const missing = c.models.filter((m) => !C.passes(m, t).length && !C.described(m, t).length).map((m) => m.code);
     let body = `Method ${t.code} ${t.short}測試 通過型號\n`;
     body += passed.length ? '通過：' + passed.join('、') + '。' : '結果總表中沒有型號列出此項。';
@@ -273,7 +281,7 @@ function doc(c) {
   }
 
   for (const m of c.models) {
-    const passed = C.TESTS.filter((t) => C.passes(m, t).length).map((t) => `${t.code} ${t.short}（${labels(t, C.passes(m, t))})`);
+    const passed = C.TESTS.filter((t) => C.passes(m, t).length).map((t) => `${t.code} ${t.short}（${labels(t, C.passes(m, t))}）`);
     const missing = C.TESTS.filter((t) => !C.passes(m, t).length).map((t) => t.short);
     let p = `${m.display} 通過的軍規測試${m.aliases.length ? '（' + m.aliases.join(' ') + '）' : ''}\n`;
     p += passed.join('、') + '。';

@@ -133,6 +133,53 @@ struct LineAPI {
         return (o["totalUsage"] as? Int) ?? 0
     }
 
+    // MARK: 圖文選單
+
+    func richMenuList() async throws -> [[String: Any]] {
+        (json(try await call("GET", "/v2/bot/richmenu/list"))["richmenus"] as? [[String: Any]]) ?? []
+    }
+
+    func defaultRichMenu() async throws -> String? {
+        do {
+            return json(try await call("GET", "/v2/bot/user/all/richmenu"))["richMenuId"] as? String
+        } catch let e as LineAPIError where e.status == 404 {
+            return nil
+        }
+    }
+
+    func createRichMenu(_ def: [String: Any]) async throws -> String {
+        guard let id = json(try await call("POST", "/v2/bot/richmenu", body: def))["richMenuId"] as? String else {
+            throw LineAPIError(status: 0, message: "建立選單失敗")
+        }
+        return id
+    }
+
+    func setDefaultRichMenu(_ id: String) async throws { try await call("POST", "/v2/bot/user/all/richmenu/\(id)") }
+    func deleteRichMenu(_ id: String) async throws { try await call("DELETE", "/v2/bot/richmenu/\(id)") }
+
+    /// 圖片要傳到 api-data.line.me
+    func uploadRichMenuImage(_ id: String, png: Data) async throws {
+        var req = URLRequest(url: URL(string: "https://api-data.line.me/v2/bot/richmenu/\(id)/content")!)
+        req.httpMethod = "POST"
+        req.timeoutInterval = 30
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        req.setValue("image/png", forHTTPHeaderField: "Content-Type")
+        req.httpBody = png
+        let (data, response) = try await URLSession.shared.data(for: req)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        guard (200..<300).contains(status) else { throw LineAPIError(status: status, message: String(data: data, encoding: .utf8) ?? "上傳選單圖片失敗") }
+    }
+
+    /// 請 LINE 檢查訊息格式（不會真的送出），有問題回傳錯誤訊息
+    func validate(_ messages: [Message]) async -> String? {
+        do {
+            try await call("POST", "/v2/bot/message/validate/push", body: ["messages": messages])
+            return nil
+        } catch {
+            return error.localizedDescription
+        }
+    }
+
     // MARK: 簽章
 
     static func verify(signature: String?, body: Data, secret: String) -> Bool {
@@ -161,6 +208,14 @@ enum LineMessage {
             }
             m["quickReply"] = ["items": items] as [String: Any]
         }
+        return m
+    }
+
+    /// Flex 卡片：altText 是通知與聊天列表顯示的文字
+    static func flex(_ altText: String, json: String, quickReplies: [String] = []) -> LineAPI.Message? {
+        guard let data = json.data(using: .utf8), let contents = try? JSONSerialization.jsonObject(with: data) else { return nil }
+        var m: LineAPI.Message = ["type": "flex", "altText": String(altText.prefix(400)), "contents": contents]
+        if let q = text("", quickReplies: quickReplies)["quickReply"] { m["quickReply"] = q }
         return m
     }
 

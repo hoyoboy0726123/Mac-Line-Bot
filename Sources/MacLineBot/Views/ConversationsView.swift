@@ -231,7 +231,7 @@ struct MessageBubble: View {
         VStack(alignment: alignment, spacing: 2) {
             Spacer(minLength: 0)
             if let source = message.source, message.role != .customer {
-                Text(source.label + (message.latency.map { String(format: " %.1fs", $0) } ?? ""))
+                Text(source.label + (message.card == true ? "・卡片" : "") + (message.latency.map { String(format: " %.1fs", $0) } ?? ""))
                     .font(.system(size: 9)).foregroundStyle(.secondary)
             }
             Text(message.date.shortDisplay).font(.system(size: 9)).foregroundStyle(.secondary)

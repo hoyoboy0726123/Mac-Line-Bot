@@ -13,7 +13,7 @@ const { iso, prefix, suffix, withTimeout, TimeoutError, sameDay } = require('./u
 const { edition, isMIL, today } = models;
 
 const reply = (text, source, quickReplies = [], latency = null) => ({ text, source, quickReplies, latency });
-const lineMsg = (r) => LineMessage.text(r.text, r.quickReplies);
+const lineMsg = (r) => (r.flex ? LineMessage.flex(r.text, r.flex, r.quickReplies) : LineMessage.text(r.text, r.quickReplies));
 const P = App.prototype;
 
 // MARK: - Webhook 入口
@@ -155,11 +155,19 @@ P.handleMessage = async function (event, userId, account) {
   r.latency = (Date.now() - started) / 1000;
   if (!event.replyToken) return;
   const record = () => {
-    this.appendMessage(id, userId, models.makeMessage('bot', r.text, r.source, r.latency));
+    this.appendMessage(id, userId, models.makeMessage('bot', r.text, r.source, r.latency, !!r.flex));
     this.update(id, (d) => { today(d).replied += 1; });
   };
   try {
-    await api.reply(event.replyToken, [lineMsg(r)]);
+    try {
+      await api.reply(event.replyToken, [lineMsg(r)]);
+    } catch (e) {
+      // 卡片格式被 LINE 拒絕時改送純文字（replyToken 還沒用掉）
+      if (!r.flex || e.status !== 400) throw e;
+      this.accountLog(id, 'warning', `Flex 卡片被 LINE 拒絕，改用文字：${e.message}`);
+      delete r.flex;
+      await api.reply(event.replyToken, [lineMsg(r)]);
+    }
     record();
     this.accountLog(id, `${name} reply ${r.latency.toFixed(1)}s 來源=${r.source}`);
   } catch (e) {
@@ -212,7 +220,9 @@ P.decide = async function (text, userId, account, api) {
       const f = x.faqs.find((y) => y.id === faq.id);
       if (f) f.hitCount += 1;
     });
-    return reply(faq.answer, 'faq');
+    const r = reply(faq.answer, 'faq', faq.quickReplies || []);
+    if (faq.flex && rules.useFlex !== false) r.flex = faq.flex;
+    return r;
   }
 
   if (!this.aiReady) return this.unanswered(id, userId, text);
@@ -577,7 +587,7 @@ P.preview = async function (text, accountId) {
   const multiItem = !comparing && splitItems(text).length >= 2;
   const toAgent = this.agentOn && (multiItem || retriever.refersToPrevious(text));
   const faq = toAgent ? null : retriever.matchFAQ(text, comparing ? d.faqs.filter((f) => f.question.includes('比較')) : d.faqs);
-  if (faq) return reply(faq.answer, 'faq');
+  if (faq) { const r = reply(faq.answer, 'faq', faq.quickReplies || []); if (faq.flex && rules.useFlex !== false) r.flex = faq.flex; return r; }
   if (!this.aiReady) return reply(rules.fallbackMessage, 'fallback');
   const started = Date.now();
   const done = (r) => { r.latency = (Date.now() - started) / 1000; return r; };

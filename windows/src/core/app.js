@@ -496,6 +496,25 @@ class App extends EventEmitter {
     this.changed();
   }
 
+  /// 請 LINE 檢查所有卡片格式（不會送出）；有問題的卡片在日誌列出，回覆時會自動改用文字
+  async validateFlex(id) {
+    const a = this.account(id);
+    if (!a || !hasCredentials(a)) return;
+    const api = new LineAPI(a.channelAccessToken);
+    const faqs = (this.data[id].faqs || []).filter((f) => f.flex);
+    let bad = 0;
+    for (let i = 0; i < faqs.length; i += 5) {
+      const batch = faqs.slice(i, i + 5);
+      const err = await api.validate(batch.map((f) => LineMessage.flex(f.answer, f.flex, f.quickReplies || [])));
+      if (!err) continue;
+      for (const f of batch) {
+        const e = await api.validate([LineMessage.flex(f.answer, f.flex, f.quickReplies || [])]);
+        if (e) { bad++; this.accountLog(id, 'warning', `卡片格式有誤（${f.question}）：${e}`); }
+      }
+    }
+    this.accountLog(id, bad ? 'warning' : 'info', bad ? `LINE 卡片檢查：${bad} 張有問題，會改用文字回覆` : `LINE 卡片檢查通過（${faqs.length} 張）`);
+  }
+
   milNeedsRegenerate(id) {
     if (!isMIL || !this.milCatalogs[id]) return false;
     return mil().index.needsRegenerate(this.milCatalogs[id], this.data[id] || models.defaultAccountData());
@@ -510,6 +529,7 @@ class App extends EventEmitter {
     this.updateMILCatalog(id, (x) => { x.lastGenerated = iso(); });
     this.accountLog(id, `軍規知識庫已重新產生：${result.faqs} 題 FAQ、背景知識 ${result.paragraphs} 段（${c.models.length} 款機種）`);
     store.saveData(this.data[id], id);
+    this.validateFlex(id).catch(() => {});
     await this.buildVectorIndex();
     return result;
   }

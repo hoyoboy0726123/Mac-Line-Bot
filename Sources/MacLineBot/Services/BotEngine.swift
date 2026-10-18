@@ -6,8 +6,13 @@ struct BotReply {
     var source: ReplySource
     var quickReplies: [String] = []
     var latency: Double?
+    /// Flex 卡片 JSON（有的話用卡片送出）
+    var flex: String?
 
-    var lineMessage: LineAPI.Message { LineMessage.text(text, quickReplies: quickReplies) }
+    var lineMessage: LineAPI.Message {
+        if let flex, let m = LineMessage.flex(text, json: flex, quickReplies: quickReplies) { return m }
+        return LineMessage.text(text, quickReplies: quickReplies)
+    }
 }
 
 // MARK: - Webhook 入口
@@ -159,8 +164,15 @@ extension AppState {
         reply.latency = Date().timeIntervalSince(started)
         guard let token = event.replyToken else { return }
         do {
-            try await api.reply(token, [reply.lineMessage])
-            appendMessage(id, userId, ChatMessage(role: .bot, text: reply.text, source: reply.source, latency: reply.latency))
+            do {
+                try await api.reply(token, [reply.lineMessage])
+            } catch let e as LineAPIError where e.status == 400 && reply.flex != nil {
+                // 卡片格式被 LINE 拒絕時改送純文字（replyToken 還沒用掉）
+                accountLog(id, .warning, "Flex 卡片被 LINE 拒絕，改用文字：\(e.message)")
+                reply.flex = nil
+                try await api.reply(token, [reply.lineMessage])
+            }
+            appendMessage(id, userId, ChatMessage(role: .bot, text: reply.text, source: reply.source, latency: reply.latency, card: reply.flex != nil ? true : nil))
             update(id) { $0.today.replied += 1 }
             accountLog(id, String(format: "%@ reply %.1fs 來源=%@", name, reply.latency ?? 0, reply.source.rawValue))
         } catch {
@@ -215,7 +227,7 @@ extension AppState {
                 d.today.faq += 1
                 if let i = d.faqs.firstIndex(where: { $0.id == faq.id }) { d.faqs[i].hitCount += 1 }
             }
-            return BotReply(text: faq.answer, source: .faq)
+            return BotReply(text: faq.answer, source: .faq, quickReplies: faq.quickReplies ?? [], flex: rules.useFlex == false ? nil : faq.flex)
         }
 
         guard aiReady else {
@@ -630,7 +642,7 @@ extension AppState {
         }
         let comparing = KnowledgeRetriever.modelTokens(text).count >= 2
         if let faq = KnowledgeRetriever.matchFAQ(text, in: comparing ? d.faqs.filter { $0.question.contains("比較") } : d.faqs) {
-            return BotReply(text: faq.answer, source: .faq)
+            return BotReply(text: faq.answer, source: .faq, quickReplies: faq.quickReplies ?? [], flex: rules.useFlex == false ? nil : faq.flex)
         }
         guard aiReady else { return BotReply(text: rules.fallbackMessage, source: .fallback) }
         let started = Date()

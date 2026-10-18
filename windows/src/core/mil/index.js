@@ -9,8 +9,9 @@ const OLD_DOC_TITLE = 'ASUS商用筆電-MIL-STD-810H軍規測試';
 function needsRegenerate(catalog, data) {
   if (!catalog) return false;
   if (!catalog.lastGenerated) return true;
-  const generated = new Set(G.faqs(catalog).map((f) => f.question + f.answer));
-  const current = new Set((data.faqs || []).filter((f) => (f.keywords || []).includes(G.TAG)).map((f) => f.question + f.answer));
+  const sig = (f) => [f.question, f.answer, f.flex || '', (f.quickReplies || []).join('|')].join('\u0001');
+  const generated = new Set(G.faqs(catalog).map(sig));
+  const current = new Set((data.faqs || []).filter((f) => (f.keywords || []).includes(G.TAG)).map(sig));
   if (generated.size !== current.size) return true;
   for (const k of generated) if (!current.has(k)) return true;
   return false;

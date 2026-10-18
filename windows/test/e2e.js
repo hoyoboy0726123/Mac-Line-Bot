@@ -14,14 +14,24 @@ fs.writeFileSync(path.join(dataDir, 'settings.json'), JSON.stringify({ port: 187
 process.env.MLB_LINE_API = `http://127.0.0.1:${LINE_PORT}`;
 
 const sent = [];
+let menus = [{ richMenuId: 'rm-old', name: '舊專案選單', chatBarText: '功能選單', areas: [{ action: { type: 'message', label: '選擇專家' } }] }];
+let defaultMenu = 'rm-old', uploaded = 0, validated = 0;
 const lineServer = http.createServer((req, res) => {
   let body = '';
   req.on('data', (c) => { body += c; });
   req.on('end', () => {
-    const j = body ? JSON.parse(body) : {};
+    let j = {}; try { j = body ? JSON.parse(body) : {}; } catch { /* 圖片 */ }
     if (req.url === '/v2/bot/info') return res.end(JSON.stringify({ userId: 'Ubot', basicId: '@test', displayName: '測試商店' }));
     if (req.url.startsWith('/v2/bot/profile/')) return res.end(JSON.stringify({ displayName: '小明' }));
     if (req.url === '/v2/bot/message/reply' || req.url === '/v2/bot/message/push') sent.push({ kind: req.url.split('/').pop(), ...j });
+    // 圖文選單：一開始有一個別的專案留下的選單
+    if (req.url === '/v2/bot/richmenu/list') return res.end(JSON.stringify({ richmenus: menus }));
+    if (req.url === '/v2/bot/user/all/richmenu' && req.method === 'GET') return defaultMenu ? res.end(JSON.stringify({ richMenuId: defaultMenu })) : (res.writeHead(404), res.end('{}'));
+    if (req.url === '/v2/bot/richmenu' && req.method === 'POST') { const id = 'rm-new-' + menus.length; menus.push({ richMenuId: id, ...j }); return res.end(JSON.stringify({ richMenuId: id })); }
+    if (req.url.startsWith('/v2/bot/user/all/richmenu/')) { defaultMenu = req.url.split('/').pop(); return res.end('{}'); }
+    if (req.url.endsWith('/content')) { uploaded = body.length; return res.end('{}'); }
+    if (req.method === 'DELETE') { menus = menus.filter((m) => m.richMenuId !== req.url.split('/').pop()); return res.end('{}'); }
+    if (req.url === '/v2/bot/message/validate/push') validated += j.messages.length;
     res.end('{}');
   });
 });
@@ -39,7 +49,7 @@ async function say(slug, userId, text) {
   const t0 = Date.now();
   while (sent.length === n && Date.now() - t0 < 120000) await new Promise((x) => setTimeout(x, 200));
   const m = sent[n];
-  return { text: m ? m.messages.map((x) => x.text || x.altText).join(' | ') : '(沒有回覆)', secs: (Date.now() - t0) / 1000 };
+  return { text: m ? m.messages.map((x) => (x.type === 'flex' ? `[卡片 ${x.contents.header.contents[1].text}] ` : '') + (x.text || x.altText) + (x.quickReply ? ` [快速選項 ${x.quickReply.items.length}]` : '')).join(' | ') : '(沒有回覆)', secs: (Date.now() - t0) / 1000 };
 }
 
 (async () => {
@@ -63,7 +73,15 @@ async function say(slug, userId, text) {
   await say(slug, 'Uowner', `綁定 ${bind}`);
   console.log('綁定：', core.app.account(id).ownerUserIds);
 
+  const menu = await api('/api/richmenu/apply', { id });
+  console.log('圖文選單：', JSON.stringify(menu), '預設=', defaultMenu, '剩下', menus.map((m) => m.name), '圖片', uploaded, 'bytes');
+  await new Promise((x) => setTimeout(x, 1500));
+  console.log('卡片檢查：', validated, '則');
+
   const cases = [
+    '比較型號',
+    'P5405CSA vs B1400',
+    '沙塵測試怎麼做',
     'P5 可以耐多低溫',
     'B5 跟 L1400 差在哪',
     '沙塵、凍融和艦載振動這三項的條件',

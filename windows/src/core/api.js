@@ -134,6 +134,11 @@ async function handleAPI(app, method, path, q, body, ctx) {
         const api = new LineAPI(a.channelAccessToken);
         try { return ok({ quota: await api.quota(), consumption: await api.consumption() }); } catch (e) { return fail(e.message); }
       }
+      case '/api/richmenu': {
+        const a = app.account(acct());
+        if (!a || !hasCredentials(a)) return fail('尚未設定 LINE 帳號');
+        try { return ok(await require('./richmenu').status(new LineAPI(a.channelAccessToken))); } catch (e) { return fail(e.message); }
+      }
       default: return fail('Not Found', 404);
     }
   }
@@ -222,6 +227,19 @@ async function handleAPI(app, method, path, q, body, ctx) {
     case '/api/accounts/test-push':
       await app.notifyOwners(body.id, [LineMessage.text(`👋 這是 ${edition.productName} 的測試通知，收到代表綁定成功！`)]);
       return ok();
+
+    case '/api/richmenu/apply': {
+      const a = app.account(body.id || id);
+      if (!a || !hasCredentials(a)) return fail('尚未設定 LINE 帳號');
+      try {
+        const r = await require('./richmenu').apply(new LineAPI(a.channelAccessToken));
+        app.accountLog(a.id, `已套用圖文選單${r.deleted.length ? `，取代舊選單：${r.deleted.join('、')}` : ''}`);
+        return ok(r);
+      } catch (e) {
+        app.accountLog(a.id, 'error', `套用圖文選單失敗：${e.message}`);
+        return fail(`套用失敗：${e.message}`);
+      }
+    }
 
     // MARK: Tunnel / Webhook
     case '/api/tunnel/start': app.startTunnel(); return ok();
