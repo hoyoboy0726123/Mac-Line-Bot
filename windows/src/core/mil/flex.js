@@ -125,13 +125,11 @@ function pairLabel(c, m) {
   return f && f.aliases.length ? f.aliases[0] : m.code;
 }
 
-function comparePairs(c) {
-  const out = [];
-  for (let i = 0; i < c.models.length; i++) {
-    for (let j = i + 1; j < c.models.length; j++) out.push(`${pairLabel(c, c.models[i])} vs ${pairLabel(c, c.models[j])}`);
-  }
-  return out.slice(0, 13);
-}
+/// 比較型號第一步：選第一台（送出「比較 P5405CSA」）
+const compareStart = (c) => c.models.slice(0, 13).map((m) => `比較 ${pairLabel(c, m)}`);
+
+/// 比較型號第二步：選要比的另一台（送出「P5405CSA vs B5302C」）
+const compareWith = (c, m) => c.models.filter((x) => x !== m).slice(0, 13).map((x) => `${pairLabel(c, m)} vs ${pairLabel(c, x)}`);
 
 /// 物件的 key 排序後轉 JSON（Mac 版用 sortedKeys，兩邊字串一樣）
 function stable(v) {
@@ -141,4 +139,4 @@ function stable(v) {
 }
 const json = (v) => JSON.stringify(stable(v));
 
-module.exports = { compare, test, model, comparePairs, json, summaryQuestion, detailQuestion };
+module.exports = { compare, test, model, compareStart, compareWith, pairLabel, json, summaryQuestion, detailQuestion };
