@@ -98,6 +98,14 @@ enum Persistence {
         save(data, to: accountsDir.appendingPathComponent("\(id.uuidString).json"))
     }
 
+    static func loadMILCatalog(for id: UUID) -> MILCatalog? {
+        load(MILCatalog.self, from: baseURL.appendingPathComponent("mil-catalog-\(id.uuidString).json"))
+    }
+
+    static func saveMILCatalog(_ c: MILCatalog, for id: UUID) {
+        save(c, to: baseURL.appendingPathComponent("mil-catalog-\(id.uuidString).json"))
+    }
+
     static func appendLog(_ line: String) {
         let data = Data((line + "\n").utf8)
         if let handle = try? FileHandle(forWritingTo: logFile) {

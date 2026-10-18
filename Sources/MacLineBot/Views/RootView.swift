@@ -24,6 +24,7 @@ struct RootView: View {
         case .conversations: ConversationsView()
         case .reservations: ReservationsView()
         case .usage: UsageView()
+        case .milModels: MILModelsView()
         case .knowledge: KnowledgeView()
         case .store: StoreInfoView()
         case .rules: RulesView()

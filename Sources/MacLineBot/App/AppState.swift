@@ -5,7 +5,7 @@ import ServiceManagement
 
 enum SidebarSection: String, CaseIterable, Identifiable, Hashable {
     case overview, conversations, reservations, usage
-    case knowledge, store, rules
+    case milModels, knowledge, store, rules
     case line
     case accounts, system
 
@@ -17,6 +17,7 @@ enum SidebarSection: String, CaseIterable, Identifiable, Hashable {
         case .conversations: "客服對話"
         case .reservations: "預約"
         case .usage: "使用量"
+        case .milModels: "軍規機種"
         case .knowledge: "知識庫"
         case .store: "店家資訊"
         case .rules: "回覆規則"
@@ -32,6 +33,7 @@ enum SidebarSection: String, CaseIterable, Identifiable, Hashable {
         case .conversations: "bubble.left.and.bubble.right.fill"
         case .reservations: "calendar"
         case .usage: "chart.bar.fill"
+        case .milModels: "checkmark.shield.fill"
         case .knowledge: "books.vertical.fill"
         case .store: "storefront.fill"
         case .rules: "text.bubble.fill"
@@ -47,6 +49,7 @@ enum SidebarSection: String, CaseIterable, Identifiable, Hashable {
         case .conversations: "green"
         case .reservations: "red"
         case .usage: "indigo"
+        case .milModels: "teal"
         case .knowledge: "orange"
         case .store: "pink"
         case .rules: "purple"
@@ -64,7 +67,7 @@ enum SidebarSection: String, CaseIterable, Identifiable, Hashable {
 
     static let groups: [SidebarGroup] = [
         SidebarGroup(title: "營運", items: [.overview, .conversations, .reservations, .usage]),
-        SidebarGroup(title: "內容", items: [.knowledge, .store, .rules]),
+        SidebarGroup(title: "內容", items: [.milModels, .knowledge, .store, .rules]),
         SidebarGroup(title: "設定", items: [.line]),
         SidebarGroup(title: "這台 Mac", items: [.accounts, .system]),
     ]
@@ -123,6 +126,8 @@ final class AppState {
     var serverError: String?
     var aiStatus: AIStatus = .unavailable("檢查中…")
     var ollamaState: OllamaState = .checking
+    /// 軍規機種資料（每個帳號一份）
+    var milCatalogs: [UUID: MILCatalog] = [:]
     var vectorCount = 0
     var webhookStatus: [UUID: WebhookStatus] = [:]
     var lastEventAt: Date?
@@ -149,6 +154,7 @@ final class AppState {
         accounts = Persistence.loadAccounts()
         for a in accounts {
             data[a.id] = Persistence.loadData(for: a.id) ?? AccountData()
+            milCatalogs[a.id] = Persistence.loadMILCatalog(for: a.id) ?? MILCatalog.seed
         }
         if settings.selectedAccountId == nil || !accounts.contains(where: { $0.id == settings.selectedAccountId }) {
             settings.selectedAccountId = accounts.first?.id
