@@ -204,9 +204,13 @@ extension AppState {
 
         // 同時提到兩個以上型號是比較題：只用「A 和 B 比較」那類 FAQ（由資料算好的差異），沒有就交給 AI
         let comparing = KnowledgeRetriever.modelTokens(text).count >= 2
-        let candidates = comparing ? d.faqs.filter { $0.question.contains("比較") } : d.faqs
+        // 一次問好幾項（「沙塵、凍融、艦載振動」）→ FAQ 只能答一項，交給 Agent 逐項查
+        let agentReady = AIEngine.config.usingOllama && AIEngine.config.agentMode
+        let multiItem = !comparing && AgentEngine.splitItems(text).count >= 2
+        let toAgent = agentReady && (multiItem || KnowledgeRetriever.refersToPrevious(text))
+        let candidates = toAgent ? [] : comparing ? d.faqs.filter { $0.question.contains("比較") } : d.faqs
         if let faq = KnowledgeRetriever.matchFAQ(text, in: candidates)
-            ?? followUp.flatMap({ _ in comparing ? nil : KnowledgeRetriever.matchFAQ(searchText, in: d.faqs) }) {
+            ?? followUp.flatMap({ _ in comparing || toAgent ? nil : KnowledgeRetriever.matchFAQ(searchText, in: d.faqs) }) {
             update(id) { d in
                 d.today.faq += 1
                 if let i = d.faqs.firstIndex(where: { $0.id == faq.id }) { d.faqs[i].hitCount += 1 }

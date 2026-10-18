@@ -295,11 +295,11 @@
 ・儲存／空運（程序 I）：模擬 40,000 英尺（約 12,192 公尺）、-20°C、12 小時，不開機
 ・運作（程序 II）：模擬 15,000 英尺（約 4,572 公尺）、5°C 與 40°C 各 12 小時，開機
 通過型號：
-・ExpertBook P5 14 吋（P5405CSA）（I、II）
-・ExpertBook B5（B5302C）（I、II）
-・ExpertBook B1 第 12 代（B1400CBA）（I、II）
-・ExpertBook B1（B1400／B1500）（I、II）
-・ExpertBook L1（L1400）（I、II）
+・ExpertBook P5 14 吋（P5405CSA）：儲存／空運（程序 I）、運作（程序 II）
+・ExpertBook B5（B5302C）：儲存／空運（程序 I）、運作（程序 II）
+・ExpertBook B1 第 12 代（B1400CBA）：儲存／空運（程序 I）、運作（程序 II）
+・ExpertBook B1（B1400／B1500）：儲存／空運（程序 I）、運作（程序 II）
+・ExpertBook L1（L1400）：儲存／空運（程序 I）、運作（程序 II）
 ※ 以華碩官方測試報告為準","高海拔;海拔;低氣壓;氣壓;高山;坐飛機;搭飛機;飛機;搭機;空運;機艙;500.6;altitude"
 "高溫測試怎麼做","高溫測試（Method 501.7）的條件：
 ・炎熱乾燥運作（A1）：32～49°C 循環 3 天，開機
@@ -307,11 +307,11 @@
 ・基本炎熱運作（A2）：30～43°C、濕度 14～44%，3 天，開機
 ・基本炎熱儲存（A2）：30～63°C、濕度 5～44%，7 天，不開機
 通過型號：
-・ExpertBook P5 14 吋（P5405CSA）（A2op、A2st）
-・ExpertBook B5（B5302C）（A1op、A1st、A2op、A2st）
-・ExpertBook B1 第 12 代（B1400CBA）（A1op、A1st、A2op、A2st）
-・ExpertBook B1（B1400／B1500）（A1op、A1st、A2op、A2st）
-・ExpertBook L1（L1400）（A1op、A1st、A2op、A2st）
+・ExpertBook P5 14 吋（P5405CSA）：基本炎熱運作（A2）、基本炎熱儲存（A2）
+・ExpertBook B5（B5302C）：炎熱乾燥運作（A1）、炎熱乾燥儲存（A1）、基本炎熱運作（A2）、基本炎熱儲存（A2）
+・ExpertBook B1 第 12 代（B1400CBA）：炎熱乾燥運作（A1）、炎熱乾燥儲存（A1）、基本炎熱運作（A2）、基本炎熱儲存（A2）
+・ExpertBook B1（B1400／B1500）：炎熱乾燥運作（A1）、炎熱乾燥儲存（A1）、基本炎熱運作（A2）、基本炎熱儲存（A2）
+・ExpertBook L1（L1400）：炎熱乾燥運作（A1）、炎熱乾燥儲存（A1）、基本炎熱運作（A2）、基本炎熱儲存（A2）
 ※ 以華碩官方測試報告為準","高溫;很熱;炎熱;夏天;車內;耐熱;熱的地方;501.7;hot"
 "低溫測試怎麼做","低溫測試（Method 502.7）的條件：
 ・基本寒冷儲存（C1）：-25～-33°C，7 天，不開機
@@ -319,40 +319,40 @@
 ・寒冷儲存（C2）：-37～-46°C，7 天，不開機
 ・寒冷運作（C2）：-37～-46°C，3 天，開機
 通過型號：
-・ExpertBook P5 14 吋（P5405CSA）（C1st、C1op）
-・ExpertBook B5（B5302C）（C1st、C1op、C2st、C2op）
-・ExpertBook B1 第 12 代（B1400CBA）（C1st、C1op、C2st、C2op）
-・ExpertBook B1（B1400／B1500）（C1st、C1op）
-・ExpertBook L1（L1400）（C1st、C1op、C2st、C2op）
+・ExpertBook P5 14 吋（P5405CSA）：基本寒冷儲存（C1）、基本寒冷運作（C1）
+・ExpertBook B5（B5302C）：基本寒冷儲存（C1）、基本寒冷運作（C1）、寒冷儲存（C2）、寒冷運作（C2）
+・ExpertBook B1 第 12 代（B1400CBA）：基本寒冷儲存（C1）、基本寒冷運作（C1）、寒冷儲存（C2）、寒冷運作（C2）
+・ExpertBook B1（B1400／B1500）：基本寒冷儲存（C1）、基本寒冷運作（C1）
+・ExpertBook L1（L1400）：基本寒冷儲存（C1）、基本寒冷運作（C1）、寒冷儲存（C2）、寒冷運作（C2）
 ※ 以華碩官方測試報告為準","低溫;很冷;寒冷;冬天;耐寒;耐冷;零下;結冰;雪地;極寒;冷的地方;502.7;cold"
 "溫度衝擊測試怎麼做","溫度衝擊測試（Method 503.7）的條件：
 ・程序 I-A：-25°C → 60°C 單向衝擊，停留 4 小時，不開機
 ・程序 I-B：-25°C → 60°C → -25°C 單循環，停留 6 小時，不開機
 ・程序 I-C：-51°C ↔ 71°C，1 小時、3 個循環，不開機
 通過型號：
-・ExpertBook P5 14 吋（P5405CSA）（IA、IB、IC）
-・ExpertBook B5（B5302C）（IC）
+・ExpertBook P5 14 吋（P5405CSA）：程序 I-A、程序 I-B、程序 I-C
+・ExpertBook B5（B5302C）：程序 I-C
 ※ 以華碩官方測試報告為準","溫度衝擊;冷熱衝擊;急速冷熱;溫差;冷熱交替;忽冷忽熱;503.7;temperature shock"
 "太陽輻射測試怎麼做","太陽輻射測試（Method 505.7）的條件：
 ・程序 I（類別 A1 循環）：日照 1120 W/m²、49°C，3 個 24 小時循環
 通過型號：
-・ExpertBook P5 14 吋（P5405CSA）（I）
+・ExpertBook P5 14 吋（P5405CSA）：程序 I（類別 A1 循環）
 ※ 以華碩官方測試報告為準","太陽輻射;太陽;日照;紫外線;曝曬;陽光;505.7;solar"
 "濕度測試怎麼做","濕度測試（Method 507.6）的條件：
 ・程序 II 加嚴循環：30°C／60°C、95% RH，10 天，不開機
 通過型號：
-・ExpertBook P5 14 吋（P5405CSA）（II）
-・ExpertBook B5（B5302C）（II）
-・ExpertBook B1 第 12 代（B1400CBA）（II）
-・ExpertBook L1（L1400）（II）
+・ExpertBook P5 14 吋（P5405CSA）：程序 II 加嚴循環
+・ExpertBook B5（B5302C）：程序 II 加嚴循環
+・ExpertBook B1 第 12 代（B1400CBA）：程序 II 加嚴循環
+・ExpertBook L1（L1400）：程序 II 加嚴循環
 ※ 以華碩官方測試報告為準","濕度;潮濕;濕氣;高濕;防潮;受潮;耐濕;防濕;507.6;humidity"
 "沙塵測試怎麼做","沙塵測試（Method 510.7）的條件：
 ・吹塵（程序 I）：粒子 10 ± 7 g/m³、風速 300～1750 ft/min、60°C
 ・吹沙（程序 II）：粒子 1.2 g/m³、風速 28 m/s、60°C
 通過型號：
-・ExpertBook P5 14 吋（P5405CSA）（I、II）
-・ExpertBook B5（B5302C）（II）
-・ExpertBook B1 第 12 代（B1400CBA）（II）
+・ExpertBook P5 14 吋（P5405CSA）：吹塵（程序 I）、吹沙（程序 II）
+・ExpertBook B5（B5302C）：吹沙（程序 II）
+・ExpertBook B1 第 12 代（B1400CBA）：吹沙（程序 II）
 ※ 以華碩官方測試報告為準","沙塵;灰塵;粉塵;防塵;吹沙;沙子;風沙;工地;510.7;dust;sand"
 "爆炸性環境測試怎麼做","爆炸性環境測試（Method 511.7）的條件：
 ・程序 I：開機運作，高度 15,000～33,000 英尺，95% 正己烷爆炸性氣體
@@ -366,21 +366,21 @@
 ・複合輪式車輛（C-VI）：5～500 Hz，每軸 40 分鐘，不開機
 ・一般最低完整性（E-1）：7.7 g rms，每軸 60 分鐘，不開機
 通過型號：
-・ExpertBook P5 14 吋（P5405CSA）（CI、CIV、CVII、E1）
-・ExpertBook B5（B5302C）（CVI、CIV、CI）
-・ExpertBook B1 第 12 代（B1400CBA）（CI、CIV、CVII）
-・ExpertBook B1（B1400／B1500）（CI、CIV、CVII）
-・ExpertBook L1（L1400）（CI、CIV、CVII）
+・ExpertBook P5 14 吋（P5405CSA）：一般貨運（C-I）、雙輪拖車（C-IV）、輪式車輛（C-VII）、一般最低完整性（E-1）
+・ExpertBook B5（B5302C）：複合輪式車輛（C-VI）、雙輪拖車（C-IV）、一般貨運（C-I）
+・ExpertBook B1 第 12 代（B1400CBA）：一般貨運（C-I）、雙輪拖車（C-IV）、輪式車輛（C-VII）
+・ExpertBook B1（B1400／B1500）：一般貨運（C-I）、雙輪拖車（C-IV）、輪式車輛（C-VII）
+・ExpertBook L1（L1400）：一般貨運（C-I）、雙輪拖車（C-IV）、輪式車輛（C-VII）
 ※ 以華碩官方測試報告為準","振動;震動;搖晃;顛簸;運送;車上;開車;搬運;514.8;vibration"
 "跌落測試怎麼做","跌落測試（Method 516.8）的條件：
 ・桌面跌落（程序 VI）：開機中，從 100 mm（10 公分）高度跌落
 ・運輸跌落（程序 IV，含包裝）：122 公分高、共 26 次
 通過型號：
-・ExpertBook P5 14 吋（P5405CSA）（VI）
-・ExpertBook B5（B5302C）（IV、VI）
-・ExpertBook B1 第 12 代（B1400CBA）（VI）
-・ExpertBook B1（B1400／B1500）（VI）
-・ExpertBook L1（L1400）（VI）
+・ExpertBook P5 14 吋（P5405CSA）：桌面跌落（程序 VI）
+・ExpertBook B5（B5302C）：運輸跌落（程序 IV，含包裝）、桌面跌落（程序 VI）
+・ExpertBook B1 第 12 代（B1400CBA）：桌面跌落（程序 VI）
+・ExpertBook B1（B1400／B1500）：桌面跌落（程序 VI）
+・ExpertBook L1（L1400）：桌面跌落（程序 VI）
 ※ 以華碩官方測試報告為準","跌落;掉落;摔落;摔地上;掉地上;防摔;抗摔;耐摔;摔壞;摔了;掉了;drop"
 "衝擊測試怎麼做","衝擊測試（Method 516.8）的條件：
 ・功能衝擊（程序 I）：40 G、11 ms，共 18 次，開機
@@ -388,25 +388,25 @@
 ・脆弱度（程序 III）：30～50 G 梯形波，共 18 次，不開機
 ・墜毀危害（程序 V）：75 G、6 ms，共 12 次，不開機
 通過型號：
-・ExpertBook P5 14 吋（P5405CSA）（I、II、III、V）
-・ExpertBook B5（B5302C）（I、II、III）
-・ExpertBook B1 第 12 代（B1400CBA）（I、II、III、V）
-・ExpertBook B1（B1400／B1500）（I、III）
-・ExpertBook L1（L1400）（I）
+・ExpertBook P5 14 吋（P5405CSA）：功能衝擊（程序 I）、公路運輸衝擊（程序 II，含包裝）、脆弱度（程序 III）、墜毀危害（程序 V）
+・ExpertBook B5（B5302C）：功能衝擊（程序 I）、公路運輸衝擊（程序 II，含包裝）、脆弱度（程序 III）
+・ExpertBook B1 第 12 代（B1400CBA）：功能衝擊（程序 I）、公路運輸衝擊（程序 II，含包裝）、脆弱度（程序 III）、墜毀危害（程序 V）
+・ExpertBook B1（B1400／B1500）：功能衝擊（程序 I）、脆弱度（程序 III）
+・ExpertBook L1（L1400）：功能衝擊（程序 I）
 ※ 以華碩官方測試報告為準","衝擊;撞擊;碰撞;撞到;G值;516.8;shock"
 "凍融測試怎麼做","凍融測試（Method 524.1）的條件：
 ・程序 III 急速溫度變化：30°C ↔ -10°C、95% RH，1 小時、3 個循環
 通過型號：
-・ExpertBook P5 14 吋（P5405CSA）（III）
-・ExpertBook B5（B5302C）（III）
+・ExpertBook P5 14 吋（P5405CSA）：程序 III 急速溫度變化
+・ExpertBook B5（B5302C）：程序 III 急速溫度變化
 ※ 以華碩官方測試報告為準","凍融;結霜;結露;起霧;解凍;524.1;freeze;thaw"
 "艦載機械振動測試怎麼做","艦載設備機械振動測試（Method 528.1）的條件：
 ・程序 1（Type 1）：4～33 Hz，2 小時
 通過型號：
-・ExpertBook P5 14 吋（P5405CSA）（1）
-・ExpertBook B5（B5302C）（1）
-・ExpertBook B1 第 12 代（B1400CBA）（1）
-・ExpertBook B1（B1400／B1500）（1）
+・ExpertBook P5 14 吋（P5405CSA）：程序 1（Type 1）
+・ExpertBook B5（B5302C）：程序 1（Type 1）
+・ExpertBook B1 第 12 代（B1400CBA）：程序 1（Type 1）
+・ExpertBook B1（B1400／B1500）：程序 1（Type 1）
 ※ 以華碩官方測試報告為準","船上;船艦;艦載;坐船;搭船;528.1;ship"
 "P5405CSA 通過哪些測試","ExpertBook P5 14 吋（P5405CSA） 通過的 MIL-STD-810H 測試：
 ・高海拔測試（Method 500.6 低氣壓）
@@ -657,7 +657,7 @@
 ・ExpertBook B1 第 12 代（B1400CBA）
 ・ExpertBook B1（B1400／B1500）
 ・ExpertBook L1（L1400）
-其他型號可以請專人幫您確認 🙂","哪些型號;哪幾台;哪些機種;哪幾款;型號清單;通過軍規的型號;有軍規的;哪些筆電+軍規;哪些+通過"
+其他型號可以請專人幫您確認 🙂","哪些型號;哪幾台;哪些機種;哪幾款;型號清單;通過軍規的型號;有軍規的;#通用"
 "哪一台測試最完整","測試項目最完整的是 ExpertBook P5 14 吋（P5405CSA）💪
 ・12 大類：高海拔、高溫、低溫、溫度衝擊、太陽輻射、濕度、沙塵、振動、衝擊、凍融、艦載機械振動
 ・測試說明另列爆炸性環境
@@ -675,7 +675,7 @@
 ・516.8 衝擊與跌落
 ・524.1 凍融
 ・528.1 艦載機械振動
-想看某一項的條件，可以直接問例如「低溫測試怎麼做」","測試項目;哪些測試;有什麼測試;幾項測試;測了什麼;測哪些;12大類;測試清單;還有哪些;全部測試;所有測試"
+想看某一項的條件，可以直接問例如「低溫測試怎麼做」","測試項目;哪些測試;有什麼測試;幾項測試;測了什麼;測哪些;12大類;測試清單;還有哪些;全部測試;所有測試;#通用"
 "通過軍規就保證不會壞嗎","軍規測試代表在實驗室條件下通過測試，但不是保證 🙏
 ・MIL-STD-810 測試只針對指定型號進行
 ・不代表適合軍事用途，也不代表符合美國國防部採購規範

@@ -298,8 +298,8 @@ def test_overview_answer(test):
     for m in ORDER:
         procs = MODELS[m]["tests"].get(test)
         if procs:
-            names = "、".join(p for p in procs)
-            lines.append(f"・{MODELS[m]['display']}（{names}）")
+            names = "、".join(TESTS[test]["params"][p].split("：")[0] for p in procs)
+            lines.append(f"・{MODELS[m]['display']}：{names}")
     if not any(MODELS[m]["tests"].get(test) for m in ORDER):
         lines.append("・結果總表中沒有型號列出此項（P5405CSA 的測試說明有列出）")
     lines.append(NOTE)
@@ -456,7 +456,7 @@ general = [
      "・ExpertBook B1（B1400／B1500）\n"
      "・ExpertBook L1（L1400）\n"
      "其他型號可以請專人幫您確認 🙂",
-     ["哪些型號", "哪幾台", "哪些機種", "哪幾款", "型號清單", "通過軍規的型號", "有軍規的", "哪些筆電+軍規", "哪些+通過"]),
+     ["哪些型號", "哪幾台", "哪些機種", "哪幾款", "型號清單", "通過軍規的型號", "有軍規的"]),
     ("哪一台測試最完整",
      "測試項目最完整的是 ExpertBook P5 14 吋（P5405CSA）💪\n"
      "・12 大類：高海拔、高溫、低溫、溫度衝擊、太陽輻射、濕度、沙塵、振動、衝擊、凍融、艦載機械振動\n"
@@ -497,7 +497,9 @@ general = [
      "需要特定型號的報告，可以請專人協助 🙂",
      ["測試報告", "報告+哪裡", "官方報告", "證明", "認證文件", "資料來源", "哪裡查", "下載+報告", "PDF"]),
 ]
-faqs += general
+# 「有哪些型號／有哪些項目」這類清單題標成「#通用」：問題裡有提到具體測試或型號時，讓更精準的題目優先
+LIST_TYPE = {"有哪些型號通過軍規測試", "軍規測試有哪些項目"}
+faqs += [(q, a, k + ["#通用"] if q in LIST_TYPE else k) for q, a, k in general]
 
 out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ASUS商用筆電-MIL-STD-810H-FAQ.csv")
 with open(out, "w", encoding="utf-8", newline="") as f:

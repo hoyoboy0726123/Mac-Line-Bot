@@ -54,7 +54,7 @@ enum KnowledgeRetriever {
                 score = max(score, 0.75 + 0.2 * closeness)
             }
             // 取「最好的一個」關鍵字：組合的部分越多、命中的字越長，分數越高
-            for k in faq.keywords {
+            for k in faq.keywords where !k.hasPrefix("#") {
                 let raw = k.split(separator: "+").map(String.init)
                 // 跟問題用同樣方式處理（「撞到」→「撞」），組合裡的單字（例如「曬」）也要出現
                 let parts = raw.map { part -> String in
@@ -74,6 +74,8 @@ enum KnowledgeRetriever {
                 let chars = parts.reduce(0) { $0 + $1.count }
                 score = max(score, min(0.97, 0.7 + 0.06 * Double(min(parts.count, 3)) + 0.01 * Double(chars)))
             }
+            // 「#通用」的一般問題降低優先：「528.1 有哪些機種通過」要選 528.1 那題，不是「有哪些型號通過軍規」
+            if faq.keywords.contains("#通用") { score -= 0.1 }
             if score > (best?.1 ?? 0) { best = (faq, score) }
         }
         guard let best, best.1 >= 0.62 else { return nil }
@@ -217,6 +219,11 @@ enum KnowledgeRetriever {
             if !out.contains(tok) { out.append(tok) }
         }
         return out
+    }
+
+    /// 指向上一則訊息內容的說法（「第13項」「第三個」），FAQ 看不到上下文，要交給 Agent
+    static func refersToPrevious(_ text: String) -> Bool {
+        text.range(of: "第\\s*([0-9]+|[一二三四五六七八九十]+)\\s*(項|個|點|款|台)", options: .regularExpression) != nil
     }
 
     /// 是不是接著上一題的追問：「有通過的型號」「那低溫呢」「這些項目的內容」
