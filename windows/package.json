@@ -12,6 +12,7 @@
     "server": "node src/cli.js",
     "test": "node --test test/*.test.js",
     "e2e": "node test/e2e.js",
+    "e2e:mil": "node test/mil-e2e.js",
     "icon": "electron scripts/make-icon.js",
     "dist": "electron-builder --win --x64 --publish never",
     "dist:dir": "electron-builder --win --x64 --dir --publish never"
