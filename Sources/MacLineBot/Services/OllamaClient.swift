@@ -8,6 +8,9 @@ struct OllamaError: LocalizedError {
 /// 呼叫本機 Ollama（qwen3.5:9b 回答、bge-m3 向量）。
 /// 用原生 /api/chat：/v1 相容端點不會帶 think 參數，Qwen 會開始「思考」而慢到不能用。
 struct OllamaClient {
+    /// 所有呼叫用同一個 context 大小，Ollama 才不會為了不同大小重新載入模型
+    static let contextSize = 16384
+
     var baseURL: String
     var chatModel: String
     var embedModel: String
@@ -54,7 +57,7 @@ struct OllamaClient {
             "model": chatModel,
             "messages": [["role": "user", "content": "hi"]],
             "think": false, "stream": false, "keep_alive": -1,
-            "options": ["num_predict": 1],
+            "options": ["num_predict": 1, "num_ctx": OllamaClient.contextSize],
         ] as [String: Any], timeout: 120)
         _ = try? await embed(["暖機"])
     }
@@ -69,7 +72,7 @@ struct OllamaClient {
             "messages": [["role": "system", "content": system], ["role": "user", "content": user]],
             "stream": false, "think": false, "keep_alive": -1,
             "format": schema,
-            "options": ["temperature": temperature, "num_predict": maxTokens, "num_ctx": 8192],
+            "options": ["temperature": temperature, "num_predict": maxTokens, "num_ctx": OllamaClient.contextSize],
         ] as [String: Any], timeout: timeout)
         guard let content = (r["message"] as? [String: Any])?["content"] as? String,
               let data = content.data(using: .utf8),
@@ -84,9 +87,22 @@ struct OllamaClient {
             "model": chatModel,
             "messages": [["role": "user", "content": prompt]],
             "stream": false, "think": false, "keep_alive": -1,
-            "options": ["num_predict": 600],
+            "options": ["num_predict": 600, "num_ctx": OllamaClient.contextSize],
         ] as [String: Any], timeout: timeout)
         return ((r["message"] as? [String: Any])?["content"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Agent 用：帶工具的一輪對話，回傳模型的 message（可能有 tool_calls）
+    func chatTurn(messages: [[String: Any]], tools: [[String: Any]], maxTokens: Int = 1200, timeout: TimeInterval = 60) async throws -> [String: Any] {
+        let r = try await post("/api/chat", [
+            "model": chatModel,
+            "messages": messages,
+            "tools": tools,
+            "stream": false, "think": false, "keep_alive": -1,
+            "options": ["temperature": 0.2, "num_predict": maxTokens, "num_ctx": OllamaClient.contextSize],  // 不要加 repeat_penalty：會懲罰「照抄數字」，模型反而改寫成國字
+        ] as [String: Any], timeout: timeout)
+        guard let message = r["message"] as? [String: Any] else { throw OllamaError(message: "沒有回傳訊息") }
+        return message
     }
 
     // MARK: 向量

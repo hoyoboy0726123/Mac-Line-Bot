@@ -165,6 +165,7 @@ final class AIEngine {
         var appleFallback = true
         var client = OllamaClient(baseURL: "http://127.0.0.1:11434", chatModel: "qwen3.5:9b", embedModel: "bge-m3")
         var ollamaTimeout: Double = 25
+        var agentMode = true
 
         var usingOllama: Bool { useOllama && ollamaReady }
     }

@@ -108,7 +108,7 @@ final class AppState {
             Persistence.saveSettings(settings)
             let o = oldValue, n = settings
             if o.useOllama != n.useOllama || o.ollamaURL != n.ollamaURL || o.chatModel != n.chatModel
-                || o.embedModel != n.embedModel || o.appleFallback != n.appleFallback {
+                || o.embedModel != n.embedModel || o.appleFallback != n.appleFallback || o.agentMode != n.agentMode {
                 ollamaState = .checking
                 applyAIConfig()
                 Task { await refreshOllama() }
@@ -287,6 +287,7 @@ final class AppState {
         c.useOllama = settings.useOllama
         c.ollamaReady = ollamaState.isReady
         c.appleFallback = settings.appleFallback
+        c.agentMode = settings.agentMode
         c.client = OllamaClient(baseURL: settings.ollamaURL, chatModel: settings.chatModel, embedModel: settings.embedModel)
         AIEngine.config = c
     }
@@ -307,6 +308,24 @@ final class AppState {
             log(.info, String(format: "向量索引完成：%d 段（%.1f 秒）", vectorCount, Date().timeIntervalSince(started)))
         } catch {
             log(.warning, "向量索引失敗：\(error.localizedDescription)")
+        }
+    }
+
+    /// Agent 模式：Qwen 用工具反覆查詢，查齊後才回覆。不能用時回傳 nil，改走一般流程
+    func runAgent(question: String, history: [ChatMessage], data d: AccountData, accountId: UUID) async -> AgentEngine.Result? {
+        let cfg = AIEngine.config
+        guard cfg.usingOllama, cfg.agentMode else { return nil }
+        let pieces = KnowledgeRetriever.pieces(of: d)
+        guard !pieces.isEmpty else { return nil }
+        do {
+            return try await AIEngine.withTimeout(80) {
+                let vectors = try await VectorIndex.shared.vectors(for: pieces, client: cfg.client)
+                let agent = AgentEngine(client: cfg.client, pieces: pieces, vectors: vectors)
+                return try await agent.run(question: question, history: history, store: d.store, rules: d.rules)
+            }
+        } catch {
+            accountLog(accountId, .warning, "Agent 未完成，改用一般回答：\(error.localizedDescription)")
+            return nil
         }
     }
 

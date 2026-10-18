@@ -354,6 +354,8 @@ struct AppSettings: Codable {
     var embedModel: String = "bge-m3"
     /// Qwen 沒開、逾時或格式錯誤時改用 Apple 本機模型
     var appleFallback: Bool = true
+    /// Agent 模式：Qwen 用工具反覆查知識庫，查齊後才回覆（較慢但較完整）
+    var agentMode: Bool = true
 
     init() {}
 
@@ -374,6 +376,7 @@ struct AppSettings: Codable {
         chatModel = try c.decodeIfPresent(String.self, forKey: .chatModel) ?? d.chatModel
         embedModel = try c.decodeIfPresent(String.self, forKey: .embedModel) ?? d.embedModel
         appleFallback = try c.decodeIfPresent(Bool.self, forKey: .appleFallback) ?? d.appleFallback
+        agentMode = try c.decodeIfPresent(Bool.self, forKey: .agentMode) ?? d.agentMode
     }
 }
 

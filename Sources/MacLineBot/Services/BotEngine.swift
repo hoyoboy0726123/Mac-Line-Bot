@@ -217,8 +217,23 @@ extension AppState {
         guard aiReady else {
             return unanswered(id, userId: userId, question: text)
         }
-        Task { await api.startLoading(chatId: userId, seconds: 20) }
+        let agentOn = AIEngine.config.usingOllama && AIEngine.config.agentMode
+        Task { await api.startLoading(chatId: userId, seconds: agentOn ? 60 : 20) }
         let started = Date()
+
+        // Agent 模式：反覆查詢知識庫，查齊後才回覆
+        if agentOn, let result = await runAgent(question: searchText == text ? text : "\(text)（接續上一題：\(followUp ?? "")）",
+                                                history: Array(conv.messages.dropLast()), data: d, accountId: id) {
+            let ms = Date().timeIntervalSince(started) * 1000
+            accountLog(id, "Agent 回答：查了 \(result.searches.count) 次、\(result.rounds) 輪（\(result.searches.prefix(4).joined(separator: "／"))）")
+            if !result.answerable { return unanswered(id, userId: userId, question: text) }
+            update(id) {
+                $0.today.ai += 1
+                $0.today.aiMilliseconds += ms
+            }
+            return BotReply(text: result.reply, source: .ai)
+        }
+
         do {
             // 有文件資料時，先請 AI 把口語問題轉成術語再搜尋（語意理解）
             // 有 Qwen + bge-m3 時用向量語意檢索；沒有時才請 Apple 模型把口語轉成術語

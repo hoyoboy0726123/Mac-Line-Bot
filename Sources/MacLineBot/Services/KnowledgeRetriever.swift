@@ -184,6 +184,25 @@ enum KnowledgeRetriever {
         return result.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    /// Agent 搜尋工具用：所有段落依「語意 + 字面 + 型號」混合分數排序。
+    /// relevant = 語意或字面至少一邊有把握（用來判斷是不是真的查到相關資料）
+    static func rank(_ text: String, pieces all: [String], semantic: [Double]?) -> [(index: Int, score: Double, relevant: Bool)] {
+        let q = core(text)
+        let models = modelTokens(text)
+        var out: [(index: Int, score: Double, relevant: Bool)] = []
+        for (i, piece) in all.enumerated() {
+            var lex = min(1, lexicalScore(q, piece: piece, terms: []))
+            if !models.isEmpty {
+                let first = normalize(piece.split(separator: "\n", maxSplits: 1).first.map(String.init) ?? "")
+                if models.contains(where: { first.contains($0) }) { lex += 0.4 }
+            }
+            let sem = semantic.flatMap { i < $0.count ? $0[i] : nil } ?? 0
+            let score = semantic == nil ? lex : 0.65 * sem + 0.35 * lex
+            out.append((i, score, sem >= 0.5 || lex >= 0.35))
+        }
+        return out.sorted { $0.score > $1.score }
+    }
+
     /// 問題裡的型號代碼，例如「P5 跟 B5」→ ["p5", "b5"]、「B1400CBA」→ ["b1400cba"]
     static func modelTokens(_ text: String) -> [String] {
         guard let re = try? NSRegularExpression(pattern: "[a-z]+[0-9]+[a-z0-9]*") else { return [] }

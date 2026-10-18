@@ -113,6 +113,10 @@ struct SystemView: View {
                     .disabled(!app.settings.useOllama)
                     Toggle("Qwen 無法使用時改用 Apple 本機模型", isOn: $app.settings.appleFallback)
                         .disabled(!app.settings.useOllama)
+                    Toggle("Agent 模式：反覆查詢知識庫，查齊資料後才回覆", isOn: $app.settings.agentMode)
+                        .disabled(!app.settings.useOllama)
+                    Text("開啟後回覆約 10～20 秒，會自動拆解多項問題逐一查詢，並檢查數字都有出處；關閉則只查一次，約 5～10 秒。常見問題（FAQ）一樣秒回。")
+                        .font(.caption).foregroundStyle(.secondary)
                     if case .missingModels(let m) = app.ollamaState {
                         Text("請先在終端機下載：" + m.map { "ollama pull \($0)" }.joined(separator: "；"))
                             .font(.caption.monospaced()).foregroundStyle(.orange).textSelection(.enabled)
