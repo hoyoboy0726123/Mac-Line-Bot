@@ -38,6 +38,8 @@ enum KnowledgeRetriever {
     // MARK: FAQ
 
     /// 常見問題直接回標準答案（不經過模型）
+    /// 關鍵字可以用「+」表示要同時出現，例如「P5+低溫」；命中越多、越長的關鍵字分數越高，
+    /// 所以「P5 可以耐多低溫」會選中「P5 低溫」那題，而不是泛用的「低溫測試」。
     static func matchFAQ(_ text: String, in faqs: [FAQItem]) -> FAQItem? {
         let q = core(text)
         guard q.count >= 2 else { return nil }
@@ -45,12 +47,23 @@ enum KnowledgeRetriever {
         for faq in faqs where faq.isEnabled {
             let fq = core(faq.question)
             var score = similarity(q, fq)
-            if !fq.isEmpty, fq.count >= 2, q.contains(fq) || (fq.contains(q) && q.count >= 3) {
-                score = max(score, 0.9)
+            if fq == q { score = 1 }
+            else if fq.count >= 2, q.contains(fq) || (fq.contains(q) && q.count >= 3) {
+                score = max(score, min(0.95, 0.8 + 0.004 * Double(fq.count)))
             }
+            // 取「最好的一個」關鍵字：組合的部分越多、命中的字越長，分數越高
             for k in faq.keywords {
-                let kk = normalize(k)
-                if kk.count >= 2, q.contains(kk) { score = max(score, 0.75) }
+                let raw = k.split(separator: "+").map(String.init)
+                // 跟問題用同樣方式處理（「撞到」→「撞」），組合裡的單字（例如「曬」）也要出現
+                let parts = raw.map { part -> String in
+                    let c = core(part)
+                    return c.isEmpty ? normalize(part) : c
+                }.filter { !$0.isEmpty }
+                guard !parts.isEmpty, parts.count == raw.count else { continue }
+                if parts.count == 1, parts[0].count < 2 { continue }
+                guard parts.allSatisfy({ q.contains($0) }) else { continue }
+                let chars = parts.reduce(0) { $0 + $1.count }
+                score = max(score, min(0.97, 0.7 + 0.06 * Double(min(parts.count, 3)) + 0.01 * Double(chars)))
             }
             if score > (best?.1 ?? 0) { best = (faq, score) }
         }

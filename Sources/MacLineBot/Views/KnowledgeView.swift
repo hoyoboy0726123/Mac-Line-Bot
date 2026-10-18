@@ -154,23 +154,65 @@ struct KnowledgeView: View {
 
     // MARK: 匯入
 
-    /// CSV：問題,答案[,關鍵字1;關鍵字2]；其他文字檔當作文件
+    /// 標準 CSV（欄位可用雙引號包住，裡面可以有逗號與換行）：問題,答案[,關鍵字1;關鍵字2]
+    static func parseFAQCSV(_ text: String) -> [FAQItem] {
+        var rows: [[String]] = []
+        var row: [String] = []
+        var field = ""
+        var inQuotes = false
+        var chars = Array(text.replacingOccurrences(of: "\r\n", with: "\n"))
+        if chars.first == "\u{FEFF}" { chars.removeFirst() }
+        var i = 0
+        while i < chars.count {
+            let c = chars[i]
+            if inQuotes {
+                if c == "\"" {
+                    if i + 1 < chars.count, chars[i + 1] == "\"" { field.append("\""); i += 1 } else { inQuotes = false }
+                } else {
+                    field.append(c)
+                }
+            } else {
+                switch c {
+                case "\"": inQuotes = true
+                case ",": row.append(field); field = ""
+                case "\n": row.append(field); rows.append(row); row = []; field = ""
+                default: field.append(c)
+                }
+            }
+            i += 1
+        }
+        if !field.isEmpty || !row.isEmpty { row.append(field); rows.append(row) }
+
+        return rows.compactMap { cols in
+            guard cols.count >= 2 else { return nil }
+            let q = cols[0].trimmingCharacters(in: .whitespacesAndNewlines)
+            let a = cols[1].trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !q.isEmpty, !a.isEmpty, q != "問題" else { return nil }
+            let k = cols.count > 2 ? cols[2].split(whereSeparator: { $0 == ";" || $0 == "；" }).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty } : []
+            return FAQItem(question: q, answer: a, keywords: k)
+        }
+    }
+
+    /// CSV 匯入成常見問題；其他文字檔當作文件
     private func importFiles(_ urls: [URL]) {
         for url in urls {
             let access = url.startAccessingSecurityScopedResource()
             defer { if access { url.stopAccessingSecurityScopedResource() } }
             guard let text = try? String(contentsOf: url, encoding: .utf8) else { continue }
             if url.pathExtension.lowercased() == "csv" {
-                let faqs = text.components(separatedBy: .newlines).compactMap { line -> FAQItem? in
-                    let cols = line.components(separatedBy: ",")
-                    guard cols.count >= 2 else { return nil }
-                    let q = cols[0].trimmingCharacters(in: CharacterSet(charactersIn: " \""))
-                    let a = cols[1].trimmingCharacters(in: CharacterSet(charactersIn: " \""))
-                    guard !q.isEmpty, !a.isEmpty, q != "問題" else { return nil }
-                    let k = cols.count > 2 ? cols[2].split(separator: ";").map { $0.trimmingCharacters(in: .whitespaces) } : []
-                    return FAQItem(question: q, answer: a, keywords: k)
+                let faqs = Self.parseFAQCSV(text)
+                // 同一個問題重複匯入就更新，不會越匯越多
+                app.updateSelected { d in
+                    for f in faqs {
+                        if let i = d.faqs.firstIndex(where: { $0.question == f.question }) {
+                            d.faqs[i].answer = f.answer
+                            d.faqs[i].keywords = f.keywords
+                            d.faqs[i].updatedAt = Date()
+                        } else {
+                            d.faqs.append(f)
+                        }
+                    }
                 }
-                app.updateSelected { $0.faqs.append(contentsOf: faqs) }
                 app.log(.info, "匯入 \(faqs.count) 筆 FAQ")
             } else {
                 let doc = KnowledgeDoc(title: url.deletingPathExtension().lastPathComponent, content: text)
@@ -194,6 +236,7 @@ struct FAQEditor: View {
             Form {
                 TextField("問題", text: $faq.question)
                 KeywordField(title: "關鍵字", keywords: $faq.keywords)
+                Text("關鍵字用「+」代表要同時出現，例如「P5+低溫」只會在顧客同時提到 P5 和低溫時命中").font(.caption).foregroundStyle(.secondary)
                 Toggle("啟用", isOn: $faq.isEnabled)
             }
             Text("標準答案").font(.caption).foregroundStyle(.secondary)
