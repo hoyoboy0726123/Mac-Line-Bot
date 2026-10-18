@@ -83,6 +83,23 @@ struct ReservationSlots {
 }
 #endif
 
+struct AITimeoutError: LocalizedError {
+    var seconds: Double
+    var errorDescription: String? { "AI 超過 \(Int(seconds)) 秒沒有回應" }
+}
+
+/// 只讓第一個結果（完成或逾時）生效
+private final class OnceFlag: @unchecked Sendable {
+    private let lock = NSLock()
+    private var done = false
+    func claim() -> Bool {
+        lock.lock(); defer { lock.unlock() }
+        if done { return false }
+        done = true
+        return true
+    }
+}
+
 /// 用 macOS 內建 Apple Intelligence 本地模型：不用 API key、沒有 token 費用，資料不出這台電腦。
 final class AIEngine {
     static func status() -> AIStatus {
@@ -220,6 +237,28 @@ final class AIEngine {
             }
         }
         return lines.joined(separator: "\n")
+    }
+
+    /// 幫 AI 呼叫加上時間上限：模型被其他程式搶資源時可能一直不回，不能讓顧客無限等待
+    static func withTimeout<T>(_ seconds: Double, _ operation: @escaping () async throws -> T) async throws -> T {
+        try await withCheckedThrowingContinuation { continuation in
+            let once = OnceFlag()
+            let work = Task {
+                do {
+                    let value = try await operation()
+                    if once.claim() { continuation.resume(returning: value) }
+                } catch {
+                    if once.claim() { continuation.resume(throwing: error) }
+                }
+            }
+            Task {
+                try? await Task.sleep(for: .seconds(seconds))
+                if once.claim() {
+                    work.cancel()
+                    continuation.resume(throwing: AITimeoutError(seconds: seconds))
+                }
+            }
+        }
     }
 
     /// 回覆本身就在說「沒有資料」→ 視為答不出來，交給待補清單

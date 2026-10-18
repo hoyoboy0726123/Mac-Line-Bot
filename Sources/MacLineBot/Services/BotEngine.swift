@@ -197,7 +197,13 @@ extension AppState {
                 return await beginReservation(id, userId: userId, text: text)
             }
         }
-        if let faq = KnowledgeRetriever.matchFAQ(text, in: d.faqs) {
+        // 追問（「有通過的型號」「那低溫呢」）要接上一題的主題
+        let previous = conv.messages.dropLast().last(where: { $0.role == .customer })?.text
+        let followUp = KnowledgeRetriever.isFollowUp(text) ? previous : nil
+        let searchText = followUp.map { "\($0) \(text)" } ?? text
+
+        if let faq = KnowledgeRetriever.matchFAQ(text, in: d.faqs)
+            ?? followUp.flatMap({ _ in KnowledgeRetriever.matchFAQ(searchText, in: d.faqs) }) {
             update(id) { d in
                 d.today.faq += 1
                 if let i = d.faqs.firstIndex(where: { $0.id == faq.id }) { d.faqs[i].hitCount += 1 }
@@ -212,10 +218,12 @@ extension AppState {
         let started = Date()
         do {
             // 有文件資料時，先請 AI 把口語問題轉成術語再搜尋（語意理解）
-            let terms = d.docs.isEmpty ? [] : await AIEngine.searchTerms(for: text)
-            let knowledge = KnowledgeRetriever.context(for: text, data: d, terms: terms)
+            let terms = d.docs.isEmpty ? [] : ((try? await AIEngine.withTimeout(10) { await AIEngine.searchTerms(for: searchText) }) ?? [])
+            let knowledge = KnowledgeRetriever.context(for: searchText, data: d, terms: terms)
             let history = Array(conv.messages.dropLast())
-            let answer = try await AIEngine.answer(question: text, knowledge: knowledge, history: history, store: d.store, rules: rules)
+            let answer = try await AIEngine.withTimeout(40) {
+                try await AIEngine.answer(question: text, knowledge: knowledge, history: history, store: d.store, rules: rules)
+            }
             let ms = Date().timeIntervalSince(started) * 1000
             switch answer.intent {
             case .humanAgent:
@@ -237,6 +245,10 @@ extension AppState {
                 }
                 return BotReply(text: answer.reply, source: .ai)
             }
+        } catch let timeout as AITimeoutError {
+            // 逾時不是知識庫缺資料，改交給真人，不要讓顧客一直等
+            accountLog(id, .warning, timeout.localizedDescription + "，轉給真人")
+            return await startHandoff(id, userId: userId, reason: "AI 回覆逾時", lastText: text, source: .handoff)
         } catch {
             accountLog(id, .warning, "AI 生成失敗：\(error.localizedDescription)")
             return unanswered(id, userId: userId, question: text)
@@ -595,9 +607,11 @@ extension AppState {
         guard aiStatus.isAvailable else { return BotReply(text: rules.fallbackMessage, source: .fallback) }
         let started = Date()
         do {
-            let terms = d.docs.isEmpty ? [] : await AIEngine.searchTerms(for: text)
+            let terms = d.docs.isEmpty ? [] : ((try? await AIEngine.withTimeout(10) { await AIEngine.searchTerms(for: text) }) ?? [])
             let knowledge = KnowledgeRetriever.context(for: text, data: d, terms: terms)
-            let a = try await AIEngine.answer(question: text, knowledge: knowledge, history: [], store: d.store, rules: rules)
+            let a = try await AIEngine.withTimeout(40) {
+                try await AIEngine.answer(question: text, knowledge: knowledge, history: [], store: d.store, rules: rules)
+            }
             let latency = Date().timeIntervalSince(started)
             if a.intent == .question || a.intent == .other, !a.answerable || !KnowledgeRetriever.hasKnowledge(knowledge) {
                 return BotReply(text: rules.fallbackMessage + "\n\n（知識庫沒有答案，會加入待補清單）", source: .fallback, latency: latency)

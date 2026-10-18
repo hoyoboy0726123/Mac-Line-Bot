@@ -49,7 +49,9 @@ enum KnowledgeRetriever {
             var score = similarity(q, fq)
             if fq == q { score = 1 }
             else if fq.count >= 2, q.contains(fq) || (fq.contains(q) && q.count >= 3) {
-                score = max(score, min(0.95, 0.8 + 0.004 * Double(fq.count)))
+                // 長度越接近越像同一題：「沙塵測試呢」應該選「沙塵測試怎麼做」而不是「ExpertBook B1 沙塵測試」
+                let closeness = Double(min(q.count, fq.count)) / Double(max(q.count, fq.count))
+                score = max(score, 0.75 + 0.2 * closeness)
             }
             // 取「最好的一個」關鍵字：組合的部分越多、命中的字越長，分數越高
             for k in faq.keywords {
@@ -126,6 +128,13 @@ enum KnowledgeRetriever {
             used += 1
         }
         return result.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// 是不是接著上一題的追問：「有通過的型號」「那低溫呢」「這些項目的內容」
+    static func isFollowUp(_ text: String) -> Bool {
+        let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let markers = ["這些", "那些", "這個", "那個", "這項", "那項", "它", "其他", "還有", "呢", "哪些型號", "有通過", "哪幾台", "那", "上面", "剛剛"]
+        return t.count <= 6 || markers.contains { t.contains($0) }
     }
 
     /// context 裡有沒有真的放進知識庫內容（只有店家基本資料不算）
