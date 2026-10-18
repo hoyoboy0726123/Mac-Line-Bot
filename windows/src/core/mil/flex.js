@@ -62,7 +62,7 @@ function compare(c, a, b) {
     ]),
     sep(),
   ];
-  for (const t of C.TESTS) {
+  for (const t of C.allTests(c)) {
     rows.push(box('horizontal', [text(t.short, { size: 'sm', color: TEXT, flex: 4 }), cellText(cell(a, t), 3), cellText(cell(b, t), 3)]));
   }
   rows.push(sep('md'), text(LEGEND, { size: 'xxs', color: GRAY, margin: 'md' }), text(NOTE, { size: 'xxs', color: GRAY }));
@@ -106,7 +106,7 @@ function test(c, t) {
 
 function model(c, m) {
   const rows = [];
-  for (const t of C.TESTS) {
+  for (const t of C.allTests(c)) {
     rows.push(box('horizontal', [
       text(t.short, { size: 'sm', color: TEXT, flex: 4 }),
       text(t.code, { size: 'xs', color: GRAY, flex: 2, align: 'center' }),

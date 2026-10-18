@@ -70,6 +70,67 @@
     </Modal>`,
   };
 
+  /// 編輯測試項目：名稱、Method 編號、顧客的說法、各程序的條件
+  const TestEditor = {
+    props: { test: Object, isNew: Boolean, used: Number },
+    emits: ['close'],
+    data() {
+      const t = JSON.parse(JSON.stringify(this.test));
+      t.procedures = t.procedures.length ? t.procedures : [{ id: 'I', label: '', detail: '' }];
+      return { t, autoName: this.isNew };
+    },
+    watch: {
+      't.short'() { if (this.autoName) this.t.name = this.composed(); },
+      't.code'() { if (this.autoName) this.t.name = this.composed(); },
+    },
+    methods: {
+      composed() { return this.t.short && this.t.code ? `${this.t.short}測試（Method ${this.t.code}）` : ''; },
+      addProc() {
+        const romans = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
+        const next = romans.find((r) => !this.t.procedures.some((p) => p.id === r)) || `P${this.t.procedures.length + 1}`;
+        this.t.procedures.push({ id: next, label: '', detail: '' });
+      },
+      removeProc(i) { this.t.procedures.splice(i, 1); },
+      move(i, d) { const p = this.t.procedures; const j = i + d; if (j < 0 || j >= p.length) return; [p[i], p[j]] = [p[j], p[i]]; },
+      async save() {
+        this.t.procedures = this.t.procedures.filter((p) => p.id.trim()).map((p) => ({ ...p, id: p.id.trim(), label: p.label.trim() || `程序 ${p.id.trim()}` }));
+        await post('/api/mil/test/save', { test: this.t }, { success: '已儲存，記得按「產生知識庫」' });
+        this.$emit('close');
+      },
+      async remove() {
+        if (!confirm(`刪除「${this.t.short}」？${this.used ? `\n有 ${this.used} 款機種勾選了這項，勾選紀錄會一起清掉。` : ''}\n刪除後記得按「產生知識庫」。`)) return;
+        await post('/api/mil/test/delete', { tid: this.t.id });
+        this.$emit('close');
+      },
+    },
+    template: `<Modal size="lg" @close="$emit('close')">
+      <b style="font-size:17px;margin-top:8px">{{ isNew ? '新增測試項目' : '編輯「' + test.short + '」' }}</b>
+      <div class="form-grid">
+        <span class="lbl">簡稱</span><input type="text" v-model="t.short" placeholder="例如 淋雨（顧客看到的名稱，會出現在表格與卡片）">
+        <span class="lbl">Method 編號</span><input type="text" v-model="t.code" placeholder="例如 506.6（PDF 匯入時用這個編號自動勾選）">
+        <span class="lbl">完整名稱</span><input type="text" v-model="t.name" @input="autoName = false" placeholder="例如 淋雨測試（Method 506.6）">
+        <span class="lbl">顧客的說法</span><div><KeywordField v-model="t.aliases"/><div class="tiny muted" style="margin-top:3px">例如 淋雨、下雨、防水。顧客的問題裡出現這些字，就會對到這個測試</div></div>
+      </div>
+      <div class="row"><b class="grow">測試程序與條件</b><button class="btn sm" @click="addProc"><Icon name="plus"/>新增程序</button></div>
+      <div class="small muted">程序代號對應報告裡的「Procedure I／II…」，PDF 匯入時會自動勾選。條件會原文出現在客服回答裡，數字請照報告填寫。</div>
+      <div class="card tight col" v-for="(p, i) in t.procedures" :key="i" style="gap:6px">
+        <div class="row">
+          <input type="text" v-model="p.id" placeholder="代號" style="width:80px" title="程序代號，例如 I、II">
+          <input type="text" v-model="p.label" placeholder="程序名稱，例如 降雨（程序 I）" class="grow">
+          <button class="btn plain" title="上移" :disabled="i === 0" @click="move(i, -1)">↑</button>
+          <button class="btn plain" title="下移" :disabled="i === t.procedures.length - 1" @click="move(i, 1)">↓</button>
+          <button class="btn plain danger" title="刪除程序" :disabled="t.procedures.length === 1" @click="removeProc(i)"><Icon name="trash-2"/></button>
+        </div>
+        <input type="text" v-model="p.detail" placeholder="條件，例如 降雨率 1.7 mm/min、風速 18 m/s，30 分鐘">
+      </div>
+      <template #foot>
+        <button v-if="!isNew" class="btn danger" @click="remove">刪除測試項目</button><span class="spacer"></span>
+        <button class="btn" @click="$emit('close')">取消</button>
+        <button class="btn primary" :disabled="!t.short.trim() || !t.code.trim() || !t.procedures.some((p) => p.id.trim())" @click="save">儲存</button>
+      </template>
+    </Modal>`,
+  };
+
   const FamilyRow = {
     props: { f: Object, members: Number },
     data() { return { name: this.f.name, aliases: [...(this.f.aliases || [])] }; },
@@ -87,8 +148,8 @@
   };
 
   P.milModels = {
-    components: { Editor, FamilyRow },
-    data: () => ({ editing: null, isNew: false, generating: false, result: '', error: '', menu: false, urlDialog: false, url: '', importing: false }),
+    components: { Editor, FamilyRow, TestEditor },
+    data: () => ({ editingTest: null, testIsNew: false, editing: null, isNew: false, generating: false, result: '', error: '', menu: false, urlDialog: false, url: '', importing: false }),
     computed: {
       mil() { return S.data && S.data.mil; },
       c() { return this.mil ? this.mil.catalog : { models: [], families: [] }; },
@@ -144,9 +205,16 @@
         this.generating = true;
         try {
           const r = await post('/api/mil/generate');
-          this.result = `已產生 ${r.faqs} 題 FAQ（取代舊的 ${r.removed} 題）、背景知識 ${r.paragraphs} 段，向量索引已更新`;
+          this.result = `已產生 ${r.faqs} 題 FAQ（取代舊的 ${r.removed} 題${r.kept ? `，保留你手動修改的 ${r.kept} 題` : ''}）、背景知識 ${r.paragraphs} 段，向量索引已更新`;
           toast('知識庫已更新 🎉');
         } finally { this.generating = false; }
+      },
+      newTest() { this.testIsNew = true; this.editingTest = { id: '', code: '', name: '', short: '', procedures: [], aliases: [] }; },
+      editTest(t) { this.testIsNew = false; this.editingTest = t; },
+      usedBy(t) { return this.c.models.filter((m) => passes(m, t).length || described(m, t).length).length; },
+      moveTest(t, dir) { post('/api/mil/test/move', { tid: t.id, dir }, { quiet: true }); },
+      resetTests() {
+        if (confirm('把測試項目還原成內建的 13 項？\n自己新增的項目會刪除，機種上對應的勾選也會清掉。')) post('/api/mil/tests/reset', {}, { success: '已還原預設測試項目' });
       },
       addFamily() { post('/api/mil/family/save', { family: { name: '新系列', aliases: [] } }); },
       members(f) { return this.c.models.filter((m) => m.family === f.name).length; },
@@ -204,12 +272,29 @@
       </div>
 
       <div class="card col">
+        <div class="row wrap"><h3 style="margin:0">測試項目</h3>
+          <span class="small muted grow">表格的每一欄。可以新增報告裡的新測試，或修改條件文字與顧客的說法；改完按「產生知識庫」就會更新回答</span>
+          <button v-if="mil && mil.customTests" class="btn" @click="resetTests">還原預設</button>
+          <button class="btn primary" @click="newTest"><Icon name="plus"/>新增測試項目</button></div>
+        <div v-for="(t, i) in tests" :key="t.id" class="row" style="padding:6px 0;border-bottom:1px solid var(--line)">
+          <span class="tag" style="background:var(--hover);min-width:52px;justify-content:center">{{ t.code }}</span>
+          <div class="grow" style="min-width:0"><b>{{ t.short }}</b>
+            <div class="tiny muted ellipsis">{{ t.procedures.map((p) => p.label).join('、') }}</div></div>
+          <span class="small muted">{{ usedBy(t) }} 款</span>
+          <button class="btn plain" title="上移" :disabled="i === 0" @click="moveTest(t, -1)">↑</button>
+          <button class="btn plain" title="下移" :disabled="i === tests.length - 1" @click="moveTest(t, 1)">↓</button>
+          <button class="btn sm" @click="editTest(t)"><Icon name="pencil"/>編輯</button>
+        </div>
+      </div>
+
+      <div class="card col">
         <div class="row wrap"><h3 style="margin:0">系列</h3>
           <span class="small muted grow">同一系列有好幾份報告時（例如 B1400／B1500 與 B1400CBA），顧客問「B1 有沒有…」會把各款結果一起列出</span>
           <button class="btn" @click="addFamily">新增系列</button></div>
         <FamilyRow v-for="f in c.families" :key="f.id" :f="f" :members="members(f)"/>
       </div>
 
+      <TestEditor v-if="editingTest" :test="editingTest" :isNew="testIsNew" :used="usedBy(editingTest)" @close="editingTest = null"/>
       <Editor v-if="editing" :model="editing" :tests="tests" :families="c.families.map((f) => f.name)" :isNew="isNew" @close="editing = null"/>
       <Modal v-if="urlDialog" title="從報告網址新增" @close="urlDialog = false">
         <div class="small muted">貼上華碩官方 MIL-STD-810H 測試報告 PDF 的網址，例如 https://www.asus.com/event/militarygradereport/….pdf</div>

@@ -75,7 +75,37 @@ const procLine = (p) => `${p.label}：${p.detail}`;
 const testId = (t) => (typeof t === 'string' ? t : t.id);
 const passes = (m, t) => (m.passed && m.passed[testId(t)]) || [];
 const described = (m, t) => (m.describedOnly && m.describedOnly[testId(t)]) || [];
-const passedTestCount = (m) => TESTS.filter((t) => passes(m, t).length).length;
+/// 這份資料使用的測試項目：使用者改過就用改過的，沒改過用內建的 13 項
+const allTests = (c) => (c && Array.isArray(c.tests) ? c.tests : TESTS);
+const findTest = (c, id) => allTests(c).find((t) => t.id === id) || null;
+const passedTestCount = (m, tests = TESTS) => tests.filter((t) => passes(m, t).length).length;
+
+const newTest = (fields = {}) => ({
+  id: 'custom-' + uuid().slice(0, 8).toLowerCase(), code: '', name: '', short: '', procedures: [], aliases: [], ...fields,
+});
+
+function normalizeTest(t) {
+  const x = newTest({ ...t });
+  x.short = (x.short || '').trim();
+  x.code = (x.code || '').trim();
+  if (!x.name) x.name = `${x.short}測試（Method ${x.code}）`;
+  x.procedures = (x.procedures || []).filter((p) => p && p.id).map((p) => ({ id: String(p.id).trim(), label: p.label || '', detail: p.detail || '' }));
+  x.aliases = (x.aliases || []).filter(Boolean);
+  return x;
+}
+
+/// 測試項目改過後，把機種身上已經不存在的程序清掉
+function pruneModels(c) {
+  for (const m of c.models) {
+    for (const key of ['passed', 'describedOnly']) {
+      for (const [tid, procs] of Object.entries(m[key] || {})) {
+        const t = findTest(c, tid);
+        const keep = t ? procs.filter((p) => t.procedures.some((x) => x.id === p)) : [];
+        if (keep.length) m[key][tid] = keep; else delete m[key][tid];
+      }
+    }
+  }
+}
 
 function familyOf(c, m) {
   if (!m.family) return null;
@@ -98,6 +128,7 @@ function normalizeCatalog(raw) {
     models: (c.models || []).map((m) => newModel({ ...m, aliases: m.aliases || [], passed: m.passed || {}, describedOnly: m.describedOnly || {} })),
     families: (c.families || []).map((f) => ({ id: f.id || uuid(), name: f.name || '', aliases: f.aliases || [] })),
   };
+  if (Array.isArray(c.tests)) out.tests = c.tests.map(normalizeTest);
   if (c.lastGenerated) out.lastGenerated = c.lastGenerated;
   return out;
 }
@@ -162,5 +193,5 @@ function seedCatalog() {
 
 module.exports = {
   TESTS, test, procedure, procLine, passes, described, passedTestCount, familyOf, multiFamilies,
-  newModel, newFamily, normalizeCatalog, seedCatalog,
+  newModel, newFamily, normalizeCatalog, seedCatalog, allTests, findTest, newTest, normalizeTest, pruneModels,
 };

@@ -94,7 +94,7 @@ function accountData(app, id) {
       .slice(0, 6).map(conversationSummary),
   };
   if (isMIL) {
-    out.mil = { catalog: app.milCatalog(id), needsRegenerate: app.milNeedsRegenerate(id), tests: mil().catalog.TESTS };
+    out.mil = { catalog: app.milCatalog(id), needsRegenerate: app.milNeedsRegenerate(id), tests: mil().catalog.allTests(app.milCatalog(id)), customTests: Array.isArray(app.milCatalog(id).tests) };
   }
   return out;
 }
@@ -288,7 +288,15 @@ async function handleAPI(app, method, path, q, body, ctx) {
       app.update(id, (d) => {
         const item = { ...models.makeFAQ(f.question, f.answer, f.keywords || []), ...(f.id ? { id: f.id } : {}), isEnabled: f.isEnabled !== false, updatedAt: iso() };
         const i = d.faqs.findIndex((x) => x.id === item.id);
-        if (i >= 0) d.faqs[i] = { ...d.faqs[i], ...item, hitCount: d.faqs[i].hitCount }; else d.faqs.unshift(item);
+        // 改了自動產生的題目 → 標成「手動修改」，重新產生時保留你的版本（卡片不再適用，拿掉）
+        if (i >= 0 && isMIL && (d.faqs[i].keywords || []).includes('#MIL自動產生') && (d.faqs[i].answer !== item.answer || d.faqs[i].question !== item.question)) {
+          item.keywords = item.keywords.filter((k) => k !== '#MIL自動產生' && k !== '#手動修改').concat('#手動修改');
+          delete item.flex;
+        } else if (i >= 0) {
+          if (d.faqs[i].flex) item.flex = d.faqs[i].flex;
+          if (d.faqs[i].quickReplies) item.quickReplies = d.faqs[i].quickReplies;
+        }
+        if (i >= 0) d.faqs[i] = { ...item, hitCount: d.faqs[i].hitCount }; else d.faqs.unshift(item);
         // 從待補清單補成 FAQ 的，順手移除
         d.pending = d.pending.filter((p) => retriever.core(p.question) !== retriever.core(item.question));
       });
@@ -375,11 +383,50 @@ async function handleAPI(app, method, path, q, body, ctx) {
       c.families = c.families.filter((x) => x.id !== body.fid);
       if (f) for (const m of c.models) if (m.family === f.name) m.family = '';
     }); return ok();
+    case '/api/mil/test/save': {
+      const C = mil().catalog;
+      const t = C.normalizeTest(body.test || {});
+      if (!t.short || !t.code) return fail('請填測試名稱與 Method 編號');
+      if (!t.procedures.length) return fail('至少要有一個測試程序');
+      if (new Set(t.procedures.map((p) => p.id)).size !== t.procedures.length) return fail('程序代號不能重複');
+      app.updateMILCatalog(id, (c) => {
+        // 第一次修改時，把內建的 13 項複製一份到這份資料裡
+        if (!Array.isArray(c.tests)) c.tests = JSON.parse(JSON.stringify(C.TESTS));
+        const i = c.tests.findIndex((x) => x.id === t.id);
+        if (i >= 0) c.tests[i] = t; else c.tests.push(t);
+        C.pruneModels(c);
+      });
+      return ok();
+    }
+    case '/api/mil/test/delete': {
+      const C = mil().catalog;
+      app.updateMILCatalog(id, (c) => {
+        if (!Array.isArray(c.tests)) c.tests = JSON.parse(JSON.stringify(C.TESTS));
+        c.tests = c.tests.filter((x) => x.id !== body.tid);
+        C.pruneModels(c);
+      });
+      return ok();
+    }
+    case '/api/mil/test/move': {
+      const C = mil().catalog;
+      app.updateMILCatalog(id, (c) => {
+        if (!Array.isArray(c.tests)) c.tests = JSON.parse(JSON.stringify(C.TESTS));
+        const i = c.tests.findIndex((x) => x.id === body.tid), j = i + (body.dir < 0 ? -1 : 1);
+        if (i >= 0 && j >= 0 && j < c.tests.length) [c.tests[i], c.tests[j]] = [c.tests[j], c.tests[i]];
+      });
+      return ok();
+    }
+    case '/api/mil/tests/reset': {
+      const C = mil().catalog;
+      app.updateMILCatalog(id, (c) => { delete c.tests; C.pruneModels(c); });
+      return ok();
+    }
     case '/api/mil/generate': return ok(await app.generateMILKnowledge(id));
     case '/api/mil/parse': {
       try {
         const parser = mil().parser;
-        const r = body.url ? await parser.load(body.url) : await parser.parsePDF(Buffer.from(body.base64 || '', 'base64'));
+        const tests = mil().catalog.allTests(app.milCatalog(id));
+        const r = body.url ? await parser.load(body.url, tests) : await parser.parsePDF(Buffer.from(body.base64 || '', 'base64'), tests);
         delete r.text;
         return ok(r);
       } catch (e) {
