@@ -48,14 +48,20 @@ enum CustomerIntent {
 
 @Generable
 struct KnowledgeAnswer {
-    @Guide(description: "顧客這則訊息的意圖。想訂位/預約是 reservation；要求找真人、專人、老闆是 humanAgent；打招呼是 greeting；道謝是 thanks；抱怨是 complaint；詢問店家資訊是 question")
+    @Guide(description: "顧客這則訊息的意圖。想訂位/預約是 reservation；要求找真人、專人、老闆是 humanAgent；打招呼是 greeting；道謝是 thanks；抱怨是 complaint；詢問店家、產品或服務的資訊是 question")
     var intent: CustomerIntent
 
-    @Guide(description: "「店家資料」裡是否有明確的資訊可以回答這個問題。資料沒有寫到的一律是 false，不可以自己推測")
-    var answerable: Bool
+    @Guide(description: "從參考資料中原文摘錄跟顧客問題有關的句子（可以多句）。只要資料有提到相關內容就要摘錄；參考資料完全沒有相關內容時才留空字串")
+    var evidence: String
 
-    @Guide(description: "要回覆給顧客的訊息，使用繁體中文，簡短自然。answerable 為 false 時，誠實說目前沒有這項資訊")
+    @Guide(description: "要回覆給顧客的訊息，使用繁體中文，簡短自然。有摘錄到資料時，用摘錄的內容具體回答（數字、條件、型號照抄）；沒有摘錄到資料時，誠實說目前沒有這項資訊")
     var reply: String
+}
+
+@Generable
+struct SearchTerms {
+    @Guide(description: "把顧客的口語問題轉換成技術文件或商品資料裡可能出現的關鍵詞：同義詞、正式術語、英文術語、相關測試或規格名稱。5 到 10 個，每個 2 到 8 個字")
+    var keywords: [String]
 }
 
 @Generable
@@ -103,10 +109,13 @@ final class AIEngine {
         你是「\(name)」的 LINE 官方帳號客服。
         \(rules.tone.instruction)\(rules.useEmoji ? "可以使用少量表情符號。" : "不要使用表情符號。")
         規則：
-        1. 只能根據「店家資料」回答，資料沒有寫到的就誠實說目前沒有這項資訊，絕對不可以編造價格、時間、地址、活動或承諾。
-        2. 一律使用繁體中文，回覆在 \(rules.maxReplyLength) 字以內。
-        3. 不要提到你是 AI 模型、不要提到「店家資料」這幾個字。
-        4. 不處理退款、法律、醫療等需要店家判斷的事情。
+        1. 先在「參考資料」中找出跟問題有關的內容，再用這些內容回答。資料有寫的就要具體回答，不要說沒有資料。
+        2. 顧客問「可不可以、會不會壞、能不能用」這類問題時，不要回答沒有資訊，而是說明資料中相關的測試或規格條件（數字照抄），讓顧客自己判斷；不要保證一定不會壞。
+        3. 參考資料完全沒有相關內容時，才說目前沒有這項資訊；絕對不可以編造資料以外的價格、規格、時間、地址、活動或承諾。
+        4. 每個數字、條件都要跟它所屬的型號或項目對應，不可以把 A 型號的資料說成 B 型號的；資料寫「沒有」某項測試時，就直接回答沒有。
+        5. 一律使用繁體中文，回覆在 \(rules.maxReplyLength) 字以內。
+        6. 不要提到你是 AI 模型，不要說「根據資料」「參考資料」，也不要提到文件標題。
+        7. 不處理退款、法律、醫療等需要店家判斷的事情。
         """
     }
 
@@ -114,7 +123,7 @@ final class AIEngine {
     static func answer(question: String, knowledge: String, history: [ChatMessage], store: StoreInfo, rules: ReplyRules) async throws -> AIAnswer {
         #if canImport(FoundationModels)
         let session = LanguageModelSession(instructions: instructions(store: store, rules: rules))
-        var prompt = "店家資料：\n\(knowledge.isEmpty ? "（沒有資料）" : knowledge)\n\n"
+        var prompt = "參考資料：\n\(knowledge.isEmpty ? "（沒有資料）" : knowledge)\n\n"
         let recent = history.suffix(6).filter { $0.role == .customer || $0.role == .bot || $0.role == .owner }
         if !recent.isEmpty {
             prompt += "最近對話：\n"
@@ -139,10 +148,35 @@ final class AIEngine {
         case .complaint: .complaint
         case .other: .other
         }
-        return AIAnswer(intent: intent, answerable: r.answerable, reply: r.reply.trimmingCharacters(in: .whitespacesAndNewlines))
+        // 有摘錄到資料就算答得出來（先摘錄再回答，小模型比較不會過度保守）
+        let evidence = r.evidence.trimmingCharacters(in: .whitespacesAndNewlines)
+        let reply = r.reply.trimmingCharacters(in: .whitespacesAndNewlines)
+        return AIAnswer(intent: intent, answerable: !evidence.isEmpty && !saysNoInfo(reply), reply: reply)
         #else
         throw NSError(domain: "MacLineBot", code: 10, userInfo: [NSLocalizedDescriptionKey: "Apple Intelligence 不可用"])
         #endif
+    }
+
+    /// 語意理解：把顧客的口語問題轉成資料裡可能出現的術語（例如「摔到地上」→ 跌落、衝擊、Drop）
+    static func searchTerms(for question: String) async -> [String] {
+        #if canImport(FoundationModels)
+        guard status().isAvailable else { return [] }
+        let session = LanguageModelSession(instructions: "你負責幫客服搜尋資料庫。只輸出關鍵詞，不要回答問題。")
+        do {
+            let r = try await session.respond(to: "顧客問題：\(question)", generating: SearchTerms.self, options: GenerationOptions(temperature: 0))
+            return Array(r.content.keywords.prefix(10))
+        } catch {
+            return []
+        }
+        #else
+        return []
+        #endif
+    }
+
+    /// 回覆本身就在說「沒有資料」→ 視為答不出來，交給待補清單
+    static func saysNoInfo(_ reply: String) -> Bool {
+        let phrases = ["沒有這項資訊", "目前沒有資料", "沒有相關資料", "沒有相關資訊", "沒有資料提到", "資料中沒有", "沒有明確的資訊", "無法回答", "不清楚"]
+        return phrases.contains { reply.contains($0) }
     }
 
     /// 從顧客訊息抽出預約欄位

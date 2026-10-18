@@ -2,7 +2,7 @@ import Foundation
 
 /// FAQ 比對與知識片段挑選。本地模型 context 很小，只挑最相關的內容餵進去。
 enum KnowledgeRetriever {
-    private static let fillers = ["請問", "想問", "我想", "你們", "妳們", "您們", "貴店", "一下", "可以", "嗎", "呢", "吧", "啊", "喔", "哦", "的", "是", "有沒有", "有"]
+    private static let fillers = ["請問", "想問", "我想", "你們", "妳們", "您們", "貴店", "一下", "可以", "嗎", "呢", "吧", "啊", "喔", "哦", "的", "是", "有沒有", "有", "會不會", "能不能", "到", "會"]
 
     static func normalize(_ text: String) -> String {
         var scalars = String.UnicodeScalarView()
@@ -60,30 +60,64 @@ enum KnowledgeRetriever {
 
     // MARK: 給模型的資料
 
-    static func context(for text: String, data: AccountData, budget: Int = 2200) -> String {
+    /// 問題的雙字詞有多少比例出現在這段資料裡（不會因為段落長就被扣分）
+    static func coverage(_ query: String, in text: String) -> Double {
+        let q = bigrams(query)
+        guard !q.isEmpty else { return 0 }
+        return Double(q.intersection(bigrams(text)).count) / Double(q.count)
+    }
+
+    /// 挑出跟問題最相關的幾段。只放真的相關的，小模型被雜訊干擾會變得很保守
+    /// AI 幫忙把口語問題轉成的關鍵詞，命中幾個（整個詞出現算 1，部分出現算 0.5）
+    static func termScore(_ terms: [String], in text: String) -> Double {
+        let ts = terms.map(normalize).filter { $0.count >= 2 }
+        guard !ts.isEmpty else { return 0 }
+        let hit = ts.reduce(0.0) { sum, t in
+            if text.contains(t) { return sum + 1 }
+            return coverage(t, in: text) >= 0.5 ? sum + 0.5 : sum
+        }
+        return min(1, hit / Double(min(ts.count, 4)))
+    }
+
+    /// - Parameter terms: AI 從問題延伸出的同義詞、正式術語（語意理解），可以是空的
+    static func context(for text: String, data: AccountData, terms: [String] = [], budget: Int = 1800, maxPieces: Int = 4) -> String {
         let q = core(text)
         var pieces: [(String, Double)] = []
 
         for faq in data.faqs where faq.isEnabled {
             let block = "問：\(faq.question)\n答：\(faq.answer)"
-            let score = similarity(q, core(faq.question + faq.keywords.joined())) + similarity(q, core(faq.answer)) * 0.5
+            let score = max(coverage(q, in: core(faq.question + faq.keywords.joined())), coverage(q, in: core(faq.answer)) * 0.8)
+                + termScore(terms, in: core(faq.question + faq.answer)) * 0.8
             pieces.append((block, score))
         }
         for doc in data.docs {
             for chunk in chunks(doc.content) {
-                let block = "【\(doc.title)】\(chunk)"
-                pieces.append((block, similarity(q, core(block))))
+                // 段落第一行通常是標題，命中標題加分
+                let title = chunk.split(separator: "\n", maxSplits: 1).first.map(String.init) ?? ""
+                let body = core(chunk)
+                let score = coverage(q, in: body) + coverage(q, in: core(title)) * 0.5 + termScore(terms, in: body) * 0.8
+                pieces.append(("【\(doc.title)】\(chunk)", score))
             }
         }
 
         var result = ""
         let store = data.store.asKnowledge
-        if !store.isEmpty { result = "店家資訊：\n" + String(store.prefix(900)) + "\n\n" }
-        for (block, _) in pieces.sorted(by: { $0.1 > $1.1 }) {
+        if !store.isEmpty { result = "店家資訊：\n" + String(store.prefix(600)) + "\n\n" }
+        let ranked = pieces.sorted { $0.1 > $1.1 }
+        let best = ranked.first?.1 ?? 0
+        var used = 0
+        for (block, score) in ranked {
+            guard used < maxPieces, score >= 0.15, score >= best * 0.5 else { break }
             if result.count + block.count > budget { continue }
             result += block + "\n\n"
+            used += 1
         }
         return result.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// context 裡有沒有真的放進知識庫內容（只有店家基本資料不算）
+    static func hasKnowledge(_ context: String) -> Bool {
+        context.contains("【") || context.contains("問：")
     }
 
     static func chunks(_ text: String, size: Int = 350) -> [String] {

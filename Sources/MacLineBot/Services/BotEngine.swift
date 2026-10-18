@@ -211,7 +211,9 @@ extension AppState {
         Task { await api.startLoading(chatId: userId, seconds: 20) }
         let started = Date()
         do {
-            let knowledge = KnowledgeRetriever.context(for: text, data: d)
+            // 有文件資料時，先請 AI 把口語問題轉成術語再搜尋（語意理解）
+            let terms = d.docs.isEmpty ? [] : await AIEngine.searchTerms(for: text)
+            let knowledge = KnowledgeRetriever.context(for: text, data: d, terms: terms)
             let history = Array(conv.messages.dropLast())
             let answer = try await AIEngine.answer(question: text, knowledge: knowledge, history: history, store: d.store, rules: rules)
             let ms = Date().timeIntervalSince(started) * 1000
@@ -223,7 +225,9 @@ extension AppState {
             case .reservation where rules.reservationEnabled:
                 return await beginReservation(id, userId: userId, text: text)
             default:
-                if !answer.answerable, answer.intent == .question || answer.intent == .other {
+                // 沒找到任何相關資料，或 AI 判斷答不出來 → 待補清單
+                let answerable = answer.answerable && KnowledgeRetriever.hasKnowledge(knowledge)
+                if !answerable, answer.intent == .question || answer.intent == .other {
                     return unanswered(id, userId: userId, question: text)
                 }
                 guard !answer.reply.isEmpty else { return unanswered(id, userId: userId, question: text) }
@@ -591,9 +595,11 @@ extension AppState {
         guard aiStatus.isAvailable else { return BotReply(text: rules.fallbackMessage, source: .fallback) }
         let started = Date()
         do {
-            let a = try await AIEngine.answer(question: text, knowledge: KnowledgeRetriever.context(for: text, data: d), history: [], store: d.store, rules: rules)
+            let terms = d.docs.isEmpty ? [] : await AIEngine.searchTerms(for: text)
+            let knowledge = KnowledgeRetriever.context(for: text, data: d, terms: terms)
+            let a = try await AIEngine.answer(question: text, knowledge: knowledge, history: [], store: d.store, rules: rules)
             let latency = Date().timeIntervalSince(started)
-            if a.intent == .question, !a.answerable {
+            if a.intent == .question || a.intent == .other, !a.answerable || !KnowledgeRetriever.hasKnowledge(knowledge) {
                 return BotReply(text: rules.fallbackMessage + "\n\n（知識庫沒有答案，會加入待補清單）", source: .fallback, latency: latency)
             }
             return BotReply(text: a.reply, source: .ai, latency: latency)
