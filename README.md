@@ -1,5 +1,14 @@
 # Mac-Line-Bot MIL（華碩軍規測試專用版）
 
+## 選擇你的作業系統
+
+| 作業系統 | 資料夾 | 開始方式 |
+| --- | --- | --- |
+| 🍎 macOS（Apple 晶片） | 專案根目錄（`Sources/`） | 看下面的說明，執行 `scripts/build-app.sh` |
+| 🪟 Windows 10 / 11 | [`windows/`](windows/README.md) | 從 GitHub Actions 下載安裝檔，或執行 `cd windows && npm install && npm start` |
+
+兩個版本的功能相同，資料格式也相同。Windows 版另外提供區網網頁管理。
+
 > 從基礎版 `v1.0-base` 分出來的專用版本，在 `mil` 分支開發：接下來升級 Qwen3.5 本機模型與 BGE-M3 向量檢索（評估見 `docs/local-llm-evaluation.md`），並客製華碩 ExpertBook MIL-STD-810H 客服功能。
 > 與基礎版可以同時安裝：App 名稱「Mac-Line-Bot MIL」、Bundle ID `com.hoyoboy.maclinebot.mil`、連接埠 8788、資料存在 `~/Library/Application Support/MacLineBot-MIL/`。
 

@@ -1,0 +1,78 @@
+name: Windows 版
+
+# 每次推上 windows/ 的修改，都在真的 Windows 上：安裝套件 → 跑測試 → 打包安裝檔 → 開 App 截圖
+on:
+  push:
+    paths: ['windows/**', '.github/workflows/windows.yml']
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: windows
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: windows/package-lock.json
+
+      - name: 安裝套件
+        run: npm ci
+
+      - name: 下載華碩官方報告（PDF 解析測試用，下載失敗就略過那幾項測試）
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          New-Item -ItemType Directory -Force test/fixtures/pdfs | Out-Null
+          $files = @{
+            'P5405CSA.pdf' = 'https://www.asus.com/tw/event/militarygradereport/asusexpertbookp5405csa.pdf'
+            'B5302C.pdf' = 'https://www.asus.com/event/militarygradereport/ASUSExpertBookB5-B5302C.pdf'
+            'asusexpertbookb1-b1400cba.pdf' = 'https://www.asus.com/event/militarygradereport/asusexpertbookb1-b1400cba.pdf'
+            'ASUSExpertBookB1-B1400-B1500.pdf' = 'https://www.asus.com/event/militarygradereport/ASUSExpertBookB1-B1400-B1500.pdf'
+            'ASUSExpertBookL1-L1400.pdf' = 'https://www.asus.com/event/militarygradereport/ASUSExpertBookL1-L1400.pdf'
+          }
+          foreach ($name in $files.Keys) {
+            try { Invoke-WebRequest $files[$name] -OutFile "test/fixtures/pdfs/$name" -UserAgent 'Mozilla/5.0' -TimeoutSec 60 }
+            catch { Write-Host "略過 $name：$_"; Remove-Item "test/fixtures/pdfs/$name" -ErrorAction SilentlyContinue }
+          }
+
+      - name: 測試
+        run: npm test
+
+      - name: 打包 Windows 安裝檔
+        run: npm run dist
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+      - name: 實際開啟 App 並截圖
+        shell: pwsh
+        run: |
+          $data = Join-Path $env:RUNNER_TEMP 'mlb-data'
+          $shots = Join-Path $env:RUNNER_TEMP 'shots'
+          New-Item -ItemType Directory -Force $data | Out-Null
+          '{"autoStart":false}' | Set-Content (Join-Path $data 'settings.json')
+          $env:MLB_DATA_DIR = $data
+          $exe = Get-ChildItem 'dist/win-unpacked/*.exe' | Select-Object -First 1
+          $p = Start-Process -FilePath $exe.FullName -ArgumentList "--screenshots=$shots" -PassThru
+          $p | Wait-Process -Timeout 240
+          Get-ChildItem $shots | Format-Table Name, Length
+          if ((Get-ChildItem $shots).Count -lt 10) { throw '截圖數量不足，App 可能沒有正常啟動' }
+
+      - name: 上傳安裝檔
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: windows/dist/*.exe
+          if-no-files-found: error
+
+      - name: 上傳截圖
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-screenshots
+          path: ${{ runner.temp }}/shots

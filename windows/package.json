@@ -1,0 +1,48 @@
+{
+  "name": "mac-line-bot-windows",
+  "productName": "Mac-Line-Bot MIL",
+  "version": "1.0.0",
+  "description": "LINE 官方帳號 AI 客服（Windows 版）：本機 Qwen + bge-m3 回答，資料留在自己的電腦",
+  "author": "hoyoboy0726123",
+  "license": "UNLICENSED",
+  "private": true,
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "server": "node src/cli.js",
+    "test": "node --test test/*.test.js",
+    "e2e": "node test/e2e.js",
+    "icon": "electron scripts/make-icon.js",
+    "dist": "electron-builder --win --x64 --publish never",
+    "dist:dir": "electron-builder --win --x64 --dir --publish never"
+  },
+  "dependencies": {
+    "lucide-static": "1.56.0",
+    "pdfjs-dist": "6.3.289",
+    "vue": "3.5.43"
+  },
+  "devDependencies": {
+    "electron": "44.8.0",
+    "electron-builder": "26.16.1"
+  },
+  "build": {
+    "appId": "com.hoyoboy.maclinebot.windows.mil",
+    "productName": "Mac-Line-Bot MIL",
+    "directories": { "output": "dist", "buildResources": "build" },
+    "files": ["src/**/*", "edition.json", "package.json", "build/icon.png", "build/tray.png"],
+    "asarUnpack": ["node_modules/pdfjs-dist/**"],
+    "win": {
+      "target": [{ "target": "nsis", "arch": ["x64"] }],
+      "icon": "build/icon.png",
+      "artifactName": "Mac-Line-Bot-MIL-Setup-${version}.exe"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "Mac-Line-Bot MIL",
+      "uninstallDisplayName": "Mac-Line-Bot MIL"
+    }
+  }
+}
