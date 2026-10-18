@@ -198,7 +198,7 @@
                 <div class="meta"><span>{{ shortDisplay(m.date) }}</span></div>
               </div>
               <div v-else class="msg mine">
-                <div class="meta"><span v-if="m.source">{{ srcLabel(m.source) }}{{ m.latency != null ? ' ' + m.latency.toFixed(1) + 's' : '' }}</span><span>{{ shortDisplay(m.date) }}</span></div>
+                <div class="meta"><span v-if="m.source">{{ srcLabel(m.source) }}{{ m.card ? '・卡片' : '' }}{{ m.latency != null ? ' ' + m.latency.toFixed(1) + 's' : '' }}</span><span>{{ shortDisplay(m.date) }}</span></div>
                 <div class="bubble">{{ m.text }}</div>
               </div>
             </template>
@@ -512,6 +512,7 @@
         <h3>回覆風格</h3>
         <div class="row"><span class="muted small" style="width:40px">語氣</span><Seg v-model="form.tone" :options="tones"/></div>
         <Toggle v-model="form.useEmoji" label="可以使用表情符號"/>
+        <Toggle v-model="form.useFlex" label="用卡片呈現（Flex Message）：型號比較表、測試條件、型號總覽"/>
         <div class="row"><span>回覆字數上限</span><input type="number" min="50" max="400" step="25" v-model.number="form.maxReplyLength" style="width:90px"> 字</div>
         <label class="field"><span>加好友歡迎訊息</span><textarea v-model="form.greetingMessage" rows="2"></textarea></label>
         <label class="field"><span>答不出來時的回覆（同時加入待補清單）</span><textarea v-model="form.fallbackMessage" rows="2"></textarea></label>
@@ -548,8 +549,9 @@
   // MARK: - LINE 連線
 
   P.line = {
-    data: () => ({ secret: '', token: '', busy: false, message: '', hostname: '', tunnelToken: '', checking: false }),
-    computed: { st, acct },
+    data: () => ({ secret: '', token: '', busy: false, message: '', hostname: '', tunnelToken: '', checking: false, menu: null, menuError: '', applying: false }),
+    computed: { st, acct, current() { return this.menu && this.menu.menus.find((m) => m.isDefault); } },
+    mounted() { this.loadMenu(); },
     watch: { 'st.settings.namedHostname': { handler(v) { this.hostname = v || ''; }, immediate: true } },
     methods: {
       copy,
@@ -572,6 +574,17 @@
       testPush() { post('/api/accounts/test-push', { id: this.acct.id }, { success: '已送出測試推播' }); },
       unbind(uid) { if (confirm('解除這個綁定？')) post('/api/accounts/unbind', { id: this.acct.id, uid }); },
       wizard() { S.wizardFromStep = 0; S.showWizard = true; },
+      async loadMenu() {
+        if (!this.acct || !this.acct.hasCredentials) return;
+        try { this.menu = await get('/api/richmenu?account=' + encodeURIComponent(this.acct.id)); this.menuError = ''; } catch (e) { this.menuError = e.message; }
+      },
+      async applyMenu() {
+        const others = this.menu ? this.menu.menus.filter((m) => !m.ours).length : 0;
+        if (others && !confirm(`會用我們的選單取代目前的 ${others} 個舊選單（舊選單會刪除）。確定嗎？`)) return;
+        this.applying = true;
+        try { const r = await post('/api/richmenu/apply', { id: this.acct.id }); toast(`已套用新選單${r.deleted.length ? `，取代 ${r.deleted.length} 個舊選單` : ''} 🎉`); await this.loadMenu(); } catch { /* 已顯示 */ }
+        this.applying = false;
+      },
     },
     template: `<div class="page">
       <PageHead section="line"/>
@@ -623,6 +636,20 @@
           <div class="row"><span class="spacer"></span>
             <button class="btn" :disabled="!acct.webhookURL || checking" @click="check">{{ checking ? '檢查中…' : '檢查' }}</button>
             <button class="btn primary" :disabled="!acct.webhookURL || !acct.hasCredentials" @click="sync">重新設定到 LINE</button></div>
+        </div>
+
+        <div class="card col">
+          <div class="row"><h3 class="grow" style="margin:0">圖文選單</h3><button class="btn plain" title="重新整理" @click="loadMenu"><Icon name="refresh-cw"/></button></div>
+          <div class="small muted">LINE 聊天室下方的按鈕選單。套用後，顧客點按鈕就會送出對應的問題，由 FAQ 直接回答。</div>
+          <img src="/richmenu.png" style="width:100%;max-width:520px;border-radius:8px;border:1px solid var(--line)" alt="選單預覽">
+          <div v-if="menu" class="small">
+            <div v-if="current">目前顯示：<b>{{ current.ours ? '我們的選單' : (current.name || '未命名選單') }}</b>（{{ current.buttons.join('、') }}）</div>
+            <div v-else class="muted">目前沒有預設選單</div>
+            <div v-if="menu.menus.filter((m) => !m.ours).length" class="warn">另有 {{ menu.menus.filter((m) => !m.ours).length }} 個舊選單（{{ menu.menus.filter((m) => !m.ours).map((m) => m.name || '未命名').join('、') }}），套用時會一起取代</div>
+          </div>
+          <div v-if="menuError" class="small err">{{ menuError }}</div>
+          <div class="row"><span class="small muted grow">按鈕：{{ menu ? menu.planned.map((b) => b.label + '→「' + b.text + '」').join('　') : '' }}</span>
+            <button class="btn primary" :disabled="!acct.hasCredentials || applying" @click="applyMenu">{{ applying ? '套用中…' : (current && current.ours ? '重新套用' : '套用我們的選單') }}</button></div>
         </div>
 
         <div class="card col">

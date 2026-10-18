@@ -60,6 +60,8 @@ const defaultRules = () => ({
   dailySummaryEnabled: true, dailySummaryHour: 21, dailySummaryMinute: 0,
   pendingReminderEnabled: true, pendingReminderMinutes: 10,
   disconnectNotifyEnabled: true, notifyUnanswered: true,
+  /// 有卡片的答案用 LINE Flex 卡片呈現
+  useFlex: true,
 });
 
 // MARK: 知識庫
@@ -74,8 +76,9 @@ const SOURCE_LABEL = {
   owner: '店家', greeting: '歡迎', blocked: '敏感', system: '系統',
 };
 
-const makeMessage = (role, text, source = null, latency = null) => {
+const makeMessage = (role, text, source = null, latency = null, card = false) => {
   const m = { id: uuid(), role, text, date: iso() };
+  if (card) m.card = true;
   if (source) m.source = source;
   if (latency != null) m.latency = latency;
   return m;

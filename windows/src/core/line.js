@@ -6,6 +6,8 @@ const { prefix } = require('./util');
 
 /// 測試時可以把 API 指到本機假伺服器
 const BASE = () => process.env.MLB_LINE_API || 'https://api.line.me';
+/// 圖片上傳用另一個網域
+const DATA_BASE = () => process.env.MLB_LINE_DATA_API || process.env.MLB_LINE_API || 'https://api-data.line.me';
 
 class LineAPIError extends Error {
   constructor(status, message) { super(`LINE API ${status}：${message}`); this.status = status; }
@@ -76,6 +78,27 @@ class LineAPI {
     return o.totalUsage || 0;
   }
 
+  // MARK: 圖文選單
+
+  richMenuList() { return this.call('GET', '/v2/bot/richmenu/list').then((o) => o.richmenus || []); }
+  async defaultRichMenu() {
+    try { return (await this.call('GET', '/v2/bot/user/all/richmenu')).richMenuId || null; } catch (e) { if (e.status === 404) return null; throw e; }
+  }
+  createRichMenu(def) { return this.call('POST', '/v2/bot/richmenu', def).then((o) => o.richMenuId); }
+  setDefaultRichMenu(id) { return this.call('POST', `/v2/bot/user/all/richmenu/${id}`); }
+  deleteRichMenu(id) { return this.call('DELETE', `/v2/bot/richmenu/${id}`); }
+  async uploadRichMenuImage(id, png) {
+    const res = await fetch(`${DATA_BASE()}/v2/bot/richmenu/${id}/content`, {
+      method: 'POST', headers: { Authorization: `Bearer ${this.token}`, 'Content-Type': 'image/png' }, body: png, signal: AbortSignal.timeout(30000),
+    });
+    if (!res.ok) throw new LineAPIError(res.status, (await res.text()) || '上傳選單圖片失敗');
+  }
+
+  /// 請 LINE 檢查訊息格式（不會真的送出）
+  async validate(messages) {
+    try { await this.call('POST', '/v2/bot/message/validate/push', { messages }); return null; } catch (e) { return e.message; }
+  }
+
   /// 驗證 x-line-signature（固定時間比較）
   static verify(signature, body, secret) {
     if (!signature || !secret) return false;
@@ -95,6 +118,13 @@ const LineMessage = {
         items: quickReplies.slice(0, 13).map((label) => ({ type: 'action', action: { type: 'message', label: prefix(label, 20), text: label } })),
       };
     }
+    return m;
+  },
+  /// Flex 卡片：altText 是通知與聊天列表顯示的文字
+  flex(altText, contents, quickReplies = []) {
+    const m = { type: 'flex', altText: prefix(altText, 400), contents: typeof contents === 'string' ? JSON.parse(contents) : contents };
+    const q = LineMessage.text('', quickReplies).quickReply;
+    if (q) m.quickReply = q;
     return m;
   },
   /// 按鈕範本：店家一鍵接受 / 婉拒（無標題時內文上限 160 字）
