@@ -63,7 +63,14 @@ enum KnowledgeRetriever {
                 }.filter { !$0.isEmpty }
                 guard !parts.isEmpty, parts.count == raw.count else { continue }
                 if parts.count == 1, parts[0].count < 2 { continue }
-                guard parts.allSatisfy({ q.contains($0) }) else { continue }
+                // 每個部分要出現在不同位置：「B1400CBA」不能同時算成「B1400CBA」和「B1400」兩個型號
+                var rest = q
+                var allFound = true
+                for part in parts.sorted(by: { $0.count > $1.count }) {
+                    guard let r = rest.range(of: part) else { allFound = false; break }
+                    rest.replaceSubrange(r, with: "|")
+                }
+                guard allFound else { continue }
                 let chars = parts.reduce(0) { $0 + $1.count }
                 score = max(score, min(0.97, 0.7 + 0.06 * Double(min(parts.count, 3)) + 0.01 * Double(chars)))
             }
@@ -95,39 +102,102 @@ enum KnowledgeRetriever {
     }
 
     /// - Parameter terms: AI 從問題延伸出的同義詞、正式術語（語意理解），可以是空的
-    static func context(for text: String, data: AccountData, terms: [String] = [], budget: Int = 1800, maxPieces: Int = 4) -> String {
-        let q = core(text)
-        var pieces: [(String, Double)] = []
-
+    /// 知識庫的所有段落（FAQ + 文件段落），順序固定，向量索引也用同一份
+    static func pieces(of data: AccountData) -> [String] {
+        var out: [String] = []
         for faq in data.faqs where faq.isEnabled {
-            let block = "問：\(faq.question)\n答：\(faq.answer)"
-            let score = max(coverage(q, in: core(faq.question + faq.keywords.joined())), coverage(q, in: core(faq.answer)) * 0.8)
-                + termScore(terms, in: core(faq.question + faq.answer)) * 0.8
-            pieces.append((block, score))
+            out.append("問：\(faq.question)\n答：\(faq.answer)")
         }
         for doc in data.docs {
-            for chunk in chunks(doc.content) {
-                // 段落第一行通常是標題，命中標題加分
-                let title = chunk.split(separator: "\n", maxSplits: 1).first.map(String.init) ?? ""
-                let body = core(chunk)
-                let score = coverage(q, in: body) + coverage(q, in: core(title)) * 0.5 + termScore(terms, in: body) * 0.8
-                pieces.append(("【\(doc.title)】\(chunk)", score))
+            for chunk in chunks(doc.content) { out.append("【\(doc.title)】\(chunk)") }
+        }
+        return out
+    }
+
+    /// 雙字詞分數（沒有向量時唯一的依據；有向量時當輔助）
+    static func lexicalScore(_ q: String, piece: String, terms: [String]) -> Double {
+        let body = core(piece)
+        let firstLine = piece.split(separator: "\n", maxSplits: 1).first.map(String.init) ?? ""
+        return coverage(q, in: body) + coverage(q, in: core(firstLine)) * 0.5 + termScore(terms, in: body) * 0.8
+    }
+
+    /// - Parameters:
+    ///   - terms: AI 從問題延伸出的術語（沒有向量時用）
+    ///   - semantic: 每個段落跟問題的 bge-m3 相似度，順序同 `pieces(of:)`；nil 代表沒有向量
+    static func context(for text: String, data: AccountData, terms: [String] = [], semantic: [Double]? = nil,
+                        budget: Int = 1800, maxPieces: Int = 4) -> String {
+        let q = core(text)
+        let all = pieces(of: data)
+        var scored: [(String, Double)] = []
+
+        // 型號客製（MIL）：問題裡的型號代碼（P5、B5302C、B1400CBA…）
+        let models = modelTokens(text)
+        let comparing = models.count >= 2 || ["差", "不同", "比較", "差異", "哪個好", "哪台好", "vs"].contains { text.lowercased().contains($0) }
+
+        if let semantic, semantic.count == all.count {
+            // 混合排序：語意為主、字面為輔。兩邊都沒把握的段落不送給模型（避免無關問題也硬塞資料）
+            for (i, piece) in all.enumerated() {
+                let sem = semantic[i]
+                var lex = min(1, lexicalScore(q, piece: piece, terms: terms))
+                if !models.isEmpty {
+                    let first = normalize(piece.split(separator: "\n", maxSplits: 1).first.map(String.init) ?? "")
+                    let body = normalize(piece)
+                    let mentioned = models.filter { first.contains($0) || body.contains($0) }
+                    if models.contains(where: { first.contains($0) }) { lex += 0.4 }
+                    // 比較型號：每個型號的「通過哪些測試」總表一定要放進去
+                    if comparing, first.contains("通過哪些測試"), !mentioned.isEmpty { lex += 0.6 + 0.1 * Double(mentioned.count) }
+                }
+                guard sem >= 0.5 || lex >= 0.35 else { continue }
+                scored.append((piece, 0.65 * sem + 0.35 * lex))
+            }
+        } else {
+            for piece in all {
+                scored.append((piece, lexicalScore(q, piece: piece, terms: terms)))
             }
         }
 
         var result = ""
         let store = data.store.asKnowledge
         if !store.isEmpty { result = "店家資訊：\n" + String(store.prefix(600)) + "\n\n" }
-        let ranked = pieces.sorted { $0.1 > $1.1 }
-        let best = ranked.first?.1 ?? 0
         var used = 0
+        // 比較型號時，每個提到的型號的測試總表優先放進去（不受分數比例限制）
+        if comparing, !models.isEmpty {
+            for piece in all {
+                let first = normalize(piece.split(separator: "\n", maxSplits: 1).first.map(String.init) ?? "")
+                guard first.contains("通過哪些測試"), models.contains(where: { normalize(piece).contains($0) }),
+                      used < maxPieces, result.count + piece.count <= budget else { continue }
+                result += piece + "\n\n"
+                used += 1
+            }
+            scored.removeAll { result.contains($0.0) }
+        }
+        let ranked = scored.sorted { $0.1 > $1.1 }
+        let best = ranked.first?.1 ?? 0
+        let minScore = semantic == nil ? 0.15 : 0.3
+        let ratio = semantic == nil ? 0.5 : 0.75
         for (block, score) in ranked {
-            guard used < maxPieces, score >= 0.15, score >= best * 0.5 else { break }
+            guard used < maxPieces, score >= minScore, score >= best * ratio else { break }
             if result.count + block.count > budget { continue }
             result += block + "\n\n"
             used += 1
         }
         return result.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// 問題裡的型號代碼，例如「P5 跟 B5」→ ["p5", "b5"]、「B1400CBA」→ ["b1400cba"]
+    static func modelTokens(_ text: String) -> [String] {
+        guard let re = try? NSRegularExpression(pattern: "[a-z]+[0-9]+[a-z0-9]*") else { return [] }
+        let t = normalize(text)
+        let r = NSRange(t.startIndex..., in: t)
+        var out: [String] = []
+        for m in re.matches(in: t, range: r) {
+            guard let range = Range(m.range, in: t) else { continue }
+            let tok = String(t[range])
+            // 810、500.6 這類標準編號不是型號
+            if tok.hasPrefix("milstd") || tok.hasPrefix("method") || tok.hasPrefix("ip") { continue }
+            if !out.contains(tok) { out.append(tok) }
+        }
+        return out
     }
 
     /// 是不是接著上一題的追問：「有通過的型號」「那低溫呢」「這些項目的內容」

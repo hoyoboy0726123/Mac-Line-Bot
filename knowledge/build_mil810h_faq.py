@@ -359,6 +359,63 @@ b1_summary = "\n".join([
 faqs.append(("ExpertBook B1 通過哪些測試", b1_summary,
              [f"{a}+{x}" for a in B1_FAMILY_ALIASES for x in ["測試項目", "哪些測試", "通過", "軍規", "810", "幾項", "耐用"]]))
 
+# 4.5) 兩兩型號比較（MIL 版）：由資料表直接算出差異，不靠模型推理
+ENTITIES = {
+    "P5405CSA": ("P5405CSA", MODELS["P5405CSA"]["aliases"]),
+    "B5302C": ("B5302C", MODELS["B5302C"]["aliases"]),
+    "B1400CBA": ("B1400CBA", MODELS["B1400CBA"]["aliases"]),
+    "B1400/B1500": ("B1400／B1500", ["B1400", "B1500", "ExpertBook B1", "B1"]),
+    "L1400": ("L1400", MODELS["L1400"]["aliases"]),
+}
+
+
+def proc_label(test, procs):
+    # 用條件說明冒號前的名稱，例如「基本寒冷儲存（C1）」，顧客看得懂
+    return "、".join(TESTS[test]["params"][p].split("：")[0] for p in procs)
+
+
+def compare_answer(a, b):
+    na, nb = ENTITIES[a][0], ENTITIES[b][0]
+    ta, tb = MODELS[a]["tests"], MODELS[b]["tests"]
+    both, only_a, only_b, diff = [], [], [], []
+    for test, t in TESTS.items():
+        pa, pb = ta.get(test), tb.get(test)
+        if pa and pb:
+            both.append(t["short"])
+            extra_a = [x for x in pa if x not in pb]
+            extra_b = [x for x in pb if x not in pa]
+            if extra_a:
+                diff.append(f"・{t['short']}：{na} 另有 {proc_label(test, extra_a)}")
+            if extra_b:
+                diff.append(f"・{t['short']}：{nb} 另有 {proc_label(test, extra_b)}")
+        elif pa:
+            only_a.append(t["short"])
+        elif pb:
+            only_b.append(t["short"])
+    lines = [f"{MODELS[a]['display']} 和 {MODELS[b]['display']} 的軍規測試比較："]
+    lines.append("✅ 兩台都有：" + ("、".join(both) if both else "無"))
+    lines.append(f"🔹 只有 {na} 有：" + ("、".join(only_a) if only_a else "無"))
+    lines.append(f"🔸 只有 {nb} 有：" + ("、".join(only_b) if only_b else "無"))
+    if diff:
+        lines.append("同一項目的程序差異：")
+        lines += diff
+    notes = []
+    for m in (a, b):
+        for test, procs in MODELS[m].get("desc", {}).items():
+            notes.append(f"{ENTITIES[m][0]} 的測試說明另列{TESTS[test]['short']}（{proc_label(test, procs)}）")
+    if notes:
+        lines.append("📄 " + "；".join(notes))
+    lines.append("想看某一項的詳細條件，可以直接問例如「" + na + " 低溫測試」")
+    return "\n".join(lines)
+
+
+keys = list(ENTITIES)
+for i in range(len(keys)):
+    for j in range(i + 1, len(keys)):
+        a, b = keys[i], keys[j]
+        kws = [f"{x}+{y}" for x in ENTITIES[a][1] for y in ENTITIES[b][1]]
+        faqs.append((f"{ENTITIES[a][0]} 和 {ENTITIES[b][0]} 比較", compare_answer(a, b), kws))
+
 # 5) 一般問題
 general = [
     ("MIL-STD-810H 是什麼",

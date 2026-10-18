@@ -73,7 +73,9 @@ struct OverviewView: View {
             ("desktopcomputer", "本機服務", "127.0.0.1:\(app.settings.port)", app.serverRunning),
             ("network", "Cloudflare Tunnel", app.tunnel.state.label, app.tunnel.state == .running),
             ("message.fill", "LINE Webhook", webhookOK ? "已同步" : "未同步", webhookOK),
-            ("apple.intelligence", "Apple 本機模型", app.aiStatus.isAvailable ? "可用" : "不可用", app.aiStatus.isAvailable),
+            app.settings.useOllama && app.ollamaState.isReady
+                ? ("cpu", "Qwen 本機模型", app.settings.chatModel, true)
+                : ("apple.intelligence", "Apple 本機模型", app.aiStatus.isAvailable ? (app.settings.useOllama ? "備援中" : "可用") : "不可用", app.aiStatus.isAvailable),
         ]
         return HStack(spacing: 0) {
             ForEach(Array(nodes.enumerated()), id: \.offset) { index, node in

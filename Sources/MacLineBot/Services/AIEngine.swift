@@ -24,6 +24,7 @@ struct AIAnswer {
     var intent: CustomerIntentKind
     var answerable: Bool
     var reply: String
+    var model: String = "Apple"
 }
 
 struct AISlots {
@@ -133,12 +134,15 @@ final class AIEngine {
         5. 一律使用繁體中文。排版要清楚好讀：第一行先用一句話回答重點；有兩項以上的內容就換行條列，每行用「・」開頭、一行只放一項；最後可以補一行提醒。不要把很多項目擠成一大段。一般回覆 \(rules.maxReplyLength) 字以內，條列時可以較長但最多 10 點。
         6. 不要提到你是 AI 模型，不要說「根據資料」「參考資料」，也不要提到文件標題。
         7. 不處理退款、法律、醫療等需要店家判斷的事情。
+        8. 不要說「可以安全使用」「沒問題」「可正常使用」「一定不會壞」這類保證的話。
+        9. 不要自行推測資料沒寫的內容（例如型號的世代、上市時間、價格）。
+        10. 報告裡沒有列出的測試，要說「報告中沒有這項測試」，不可以說「未通過」或「不合格」。
+        11. 顧客比較兩個型號時，參考資料裡有兩邊各自的測試清單就是可以回答：逐項對照，列出「兩台都有」「只有 A 有」「只有 B 有」，不要說沒有差異資料。
         """
     }
 
-    /// 依知識庫回答
-    static func answer(question: String, knowledge: String, history: [ChatMessage], store: StoreInfo, rules: ReplyRules) async throws -> AIAnswer {
-        #if canImport(FoundationModels)
+    /// 參考資料 + 最近對話 + 顧客最新訊息（Apple 與 Qwen 共用）
+    static func prompt(question: String, knowledge: String, history: [ChatMessage]) -> String {
         var prompt = "參考資料：\n\(knowledge.isEmpty ? "（沒有資料）" : knowledge)\n\n"
         let recent = history.suffix(6).filter { $0.role == .customer || $0.role == .bot || $0.role == .owner }
         if !recent.isEmpty {
@@ -149,6 +153,83 @@ final class AIEngine {
             prompt += "\n"
         }
         prompt += "顧客最新訊息：\(question)"
+        return prompt
+    }
+
+    // MARK: - 模型選擇：Qwen（Ollama）為主，Apple 本機模型為備援
+
+    struct Config {
+        var useOllama = false
+        var ollamaReady = false
+        var appleFallback = true
+        var client = OllamaClient(baseURL: "http://127.0.0.1:11434", chatModel: "qwen3.5:9b", embedModel: "bge-m3")
+        var ollamaTimeout: Double = 25
+
+        var usingOllama: Bool { useOllama && ollamaReady }
+    }
+
+    private static let configLock = NSLock()
+    nonisolated(unsafe) private static var _config = Config()
+    static var config: Config {
+        get { configLock.lock(); defer { configLock.unlock() }; return _config }
+        set { configLock.lock(); _config = newValue; configLock.unlock() }
+    }
+
+    /// 目前有沒有任何一個模型可以用
+    static var anyAvailable: Bool { config.usingOllama || status().isAvailable }
+
+    /// 給畫面顯示：目前實際回答用的模型
+    static var activeModelName: String {
+        config.usingOllama ? config.client.chatModel : "Apple 本機模型"
+    }
+
+    /// 依知識庫回答：先用 Qwen，失敗或逾時再用 Apple 模型
+    static func answer(question: String, knowledge: String, history: [ChatMessage], store: StoreInfo, rules: ReplyRules) async throws -> AIAnswer {
+        let cfg = config
+        if cfg.usingOllama {
+            do {
+                return try await withTimeout(cfg.ollamaTimeout) {
+                    try await ollamaAnswer(question: question, knowledge: knowledge, history: history, store: store, rules: rules, client: cfg.client)
+                }
+            } catch {
+                guard cfg.appleFallback, status().isAvailable else { throw error }
+                NSLog("Qwen 失敗，改用 Apple 模型：\(error.localizedDescription)")
+            }
+        }
+        return try await appleAnswer(question: question, knowledge: knowledge, history: history, store: store, rules: rules)
+    }
+
+    private static let answerSchema: [String: Any] = [
+        "type": "object",
+        "properties": [
+            "intent": ["type": "string", "enum": ["question", "reservation", "humanAgent", "greeting", "thanks", "complaint", "other"]],
+            "evidence": ["type": "string"],
+            "reply": ["type": "string"],
+        ] as [String: Any],
+        "required": ["intent", "evidence", "reply"],
+    ]
+
+    static func ollamaAnswer(question: String, knowledge: String, history: [ChatMessage], store: StoreInfo, rules: ReplyRules, client: OllamaClient) async throws -> AIAnswer {
+        let system = instructions(store: store, rules: rules) + """
+
+        輸出 JSON：
+        - intent：顧客意圖（question 詢問資訊／reservation 想預約／humanAgent 要找真人／greeting 打招呼／thanks 道謝／complaint 抱怨／other）
+        - evidence：從參考資料原文摘錄最相關的 1～2 句，最多 120 字；完全沒有相關內容才留空字串
+        - reply：給顧客的回覆，照上面的排版規則
+        """
+        let j = try await client.chatJSON(system: system, user: prompt(question: question, knowledge: knowledge, history: history), schema: answerSchema)
+        let intent = CustomerIntentKind(rawValue: j["intent"] as? String ?? "") ?? .other
+        let evidence = (j["evidence"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let reply = formatForLINE(j["reply"] as? String ?? "")
+        guard !reply.isEmpty else { throw OllamaError(message: "沒有產生回覆") }
+        return AIAnswer(intent: intent, answerable: !evidence.isEmpty && !saysNoInfo(reply), reply: reply, model: client.chatModel)
+    }
+
+    /// Apple 本機模型（FoundationModels）回答
+    static func appleAnswer(question: String, knowledge: String, history: [ChatMessage], store: StoreInfo, rules: ReplyRules) async throws -> AIAnswer {
+        #if canImport(FoundationModels)
+        guard status().isAvailable else { throw NSError(domain: "MacLineBot", code: 10, userInfo: [NSLocalizedDescriptionKey: "Apple Intelligence 不可用"]) }
+        let prompt = prompt(question: question, knowledge: knowledge, history: history)
         // 小模型偶爾會產生格式壞掉的結構化輸出，換個溫度重試一次
         var lastError: Error?
         var content: KnowledgeAnswer?
@@ -271,6 +352,27 @@ final class AIEngine {
 
     /// 從顧客訊息抽出預約欄位
     static func extractSlots(from text: String, today: String) async -> AISlots? {
+        let cfg = config
+        if cfg.usingOllama {
+            let schema: [String: Any] = [
+                "type": "object",
+                "properties": ["date": ["type": "string"], "time": ["type": "string"], "people": ["type": "string"],
+                               "name": ["type": "string"], "phone": ["type": "string"]] as [String: Any],
+                "required": ["date", "time", "people", "name", "phone"],
+            ]
+            if let j = try? await withTimeout(cfg.ollamaTimeout, {
+                try await cfg.client.chatJSON(
+                    system: "你負責從顧客的訊息中抽出訂位資訊。今天是 \(today)。只抽訊息中明確提到的內容，沒提到的欄位填空字串。date 照顧客說法（例如 10/12、明天），time 例如 19:00，people 只填數字。",
+                    user: text, schema: schema, temperature: 0, maxTokens: 120)
+            }) {
+                func str(_ k: String) -> String? {
+                    let v = (j[k] as? String ?? "").trimmingCharacters(in: .whitespaces)
+                    return v.isEmpty ? nil : v
+                }
+                return AISlots(date: str("date"), time: str("time"), people: str("people").flatMap { Int($0.filter(\.isNumber)) },
+                               name: str("name"), phone: str("phone"))
+            }
+        }
         #if canImport(FoundationModels)
         guard status().isAvailable else { return nil }
         let session = LanguageModelSession(instructions: "你負責從顧客的訊息中抽出訂位資訊。今天是 \(today)。只抽訊息中明確提到的內容，沒提到的欄位留空。")
@@ -288,6 +390,8 @@ final class AIEngine {
 
     /// 單純聊天測試（系統頁的 AI 試用）
     static func freeform(_ prompt: String) async throws -> String {
+        let cfg = config
+        if cfg.usingOllama { return try await cfg.client.chat(prompt) }
         #if canImport(FoundationModels)
         let session = LanguageModelSession()
         return try await session.respond(to: prompt).content

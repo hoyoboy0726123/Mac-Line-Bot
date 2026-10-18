@@ -70,6 +70,22 @@ enum SidebarSection: String, CaseIterable, Identifiable, Hashable {
     ]
 }
 
+enum OllamaState: Equatable {
+    case checking, disabled, ready, notRunning
+    case missingModels([String])
+
+    var isReady: Bool { self == .ready }
+    var label: String {
+        switch self {
+        case .checking: "檢查中"
+        case .disabled: "已關閉"
+        case .ready: "已連線"
+        case .notRunning: "沒有在執行"
+        case .missingModels(let m): "缺少模型：" + m.joined(separator: "、")
+        }
+    }
+}
+
 struct WebhookStatus: Equatable {
     var endpoint: String = ""
     var synced = false
@@ -88,7 +104,16 @@ final class AppState {
     static let shared = AppState()
 
     var settings: AppSettings {
-        didSet { Persistence.saveSettings(settings) }
+        didSet {
+            Persistence.saveSettings(settings)
+            let o = oldValue, n = settings
+            if o.useOllama != n.useOllama || o.ollamaURL != n.ollamaURL || o.chatModel != n.chatModel
+                || o.embedModel != n.embedModel || o.appleFallback != n.appleFallback {
+                ollamaState = .checking
+                applyAIConfig()
+                Task { await refreshOllama() }
+            }
+        }
     }
     var accounts: [BotAccount] = []
     var data: [UUID: AccountData] = [:]
@@ -97,6 +122,8 @@ final class AppState {
     var serverRunning = false
     var serverError: String?
     var aiStatus: AIStatus = .unavailable("檢查中…")
+    var ollamaState: OllamaState = .checking
+    var vectorCount = 0
     var webhookStatus: [UUID: WebhookStatus] = [:]
     var lastEventAt: Date?
     var section: SidebarSection = .overview
@@ -220,6 +247,85 @@ final class AppState {
 
     func refreshAIStatus() {
         aiStatus = AIEngine.status()
+        Task { await refreshOllama() }
+    }
+
+    /// 有任何模型可以回答（Qwen 或 Apple）
+    var aiReady: Bool { ollamaState.isReady && settings.useOllama || aiStatus.isAvailable }
+
+    /// 檢查 Ollama 是否在跑、模型是否已下載，並同步給 AIEngine
+    func refreshOllama(warmUp: Bool = true) async {
+        let s = settings
+        let client = OllamaClient(baseURL: s.ollamaURL, chatModel: s.chatModel, embedModel: s.embedModel)
+        guard s.useOllama else {
+            ollamaState = .disabled
+            applyAIConfig()
+            return
+        }
+        let wasReady = ollamaState.isReady
+        do {
+            let installed = try await client.installedModels()
+            let missing = [s.chatModel, s.embedModel].filter { !OllamaClient.has($0, in: installed) }
+            ollamaState = missing.isEmpty ? .ready : .missingModels(missing)
+        } catch {
+            ollamaState = .notRunning
+        }
+        applyAIConfig()
+        if ollamaState.isReady, !wasReady {
+            log(.info, "Ollama 已連線：\(s.chatModel) + \(s.embedModel)")
+            if warmUp {
+                await client.warmUp()
+                await buildVectorIndex()
+            }
+        } else if wasReady, !ollamaState.isReady {
+            log(.warning, "Ollama 無法使用（\(ollamaState.label)），\(s.appleFallback ? "改用 Apple 本機模型" : "AI 暫停")")
+        }
+    }
+
+    func applyAIConfig() {
+        var c = AIEngine.Config()
+        c.useOllama = settings.useOllama
+        c.ollamaReady = ollamaState.isReady
+        c.appleFallback = settings.appleFallback
+        c.client = OllamaClient(baseURL: settings.ollamaURL, chatModel: settings.chatModel, embedModel: settings.embedModel)
+        AIEngine.config = c
+    }
+
+    /// 把所有帳號的知識庫段落算好向量（只算新增或修改過的）
+    func buildVectorIndex(force: Bool = false) async {
+        guard AIEngine.config.usingOllama else { return }
+        let client = AIEngine.config.client
+        let texts = accounts.flatMap { KnowledgeRetriever.pieces(of: data[$0.id] ?? AccountData()) }
+        let started = Date()
+        do {
+            if force {
+                vectorCount = try await VectorIndex.shared.rebuild(texts: texts, client: client)
+            } else {
+                _ = try await VectorIndex.shared.vectors(for: texts, client: client)
+                vectorCount = await VectorIndex.shared.count
+            }
+            log(.info, String(format: "向量索引完成：%d 段（%.1f 秒）", vectorCount, Date().timeIntervalSince(started)))
+        } catch {
+            log(.warning, "向量索引失敗：\(error.localizedDescription)")
+        }
+    }
+
+    /// 問題跟每個知識段落的語意相似度；沒有 Ollama 時回傳 nil（改用關鍵詞擴充）
+    func semanticScores(for question: String, data d: AccountData) async -> [Double]? {
+        let cfg = AIEngine.config
+        guard cfg.usingOllama else { return nil }
+        let pieces = KnowledgeRetriever.pieces(of: d)
+        guard !pieces.isEmpty else { return nil }
+        do {
+            return try await AIEngine.withTimeout(15) {
+                let vectors = try await VectorIndex.shared.vectors(for: pieces, client: cfg.client)
+                guard let q = try await cfg.client.embed([question]).first.map(VectorIndex.normalized) else { return [] }
+                return vectors.map { VectorIndex.cosine(q, $0) }
+            }
+        } catch {
+            log(.warning, "語意檢索失敗，改用關鍵詞：\(error.localizedDescription)")
+            return nil
+        }
     }
 
     func startServer() {
@@ -375,7 +481,8 @@ final class AppState {
             return (.warning, "Webhook 尚未同步", "按「重設 Tunnel」或到 LINE 連線頁面檢查")
         }
         if !settings.aiAutoReply { return (.warning, "AI 自動回覆已關閉", "訊息會留給你手動回覆") }
-        if !aiStatus.isAvailable { return (.warning, "Apple 本機模型不可用", aiStatus.label + "，目前只用 FAQ 回答") }
+        if !aiReady { return (.warning, "本機模型不可用", "Ollama：\(ollamaState.label)；Apple：\(aiStatus.label)。目前只用 FAQ 回答") }
+        if settings.useOllama, !ollamaState.isReady { return (.warning, "Qwen 未連線", "Ollama \(ollamaState.label)，暫時用 Apple 本機模型回答") }
         return (.ok, "一切正常", "正在接收 LINE 訊息並由本機模型自動回覆。")
     }
 
@@ -437,6 +544,8 @@ final class AppState {
     private func tick() {
         tickCount += 1
         let now = Date()
+        // 每 2 分鐘確認 Ollama 還在（關掉或重開都會自動切換）
+        if tickCount % 4 == 0 { Task { await refreshOllama() } }
         for a in accounts {
             runConversationTimers(a.id, now: now)
             sendDailySummaryIfNeeded(a.id, now: now)

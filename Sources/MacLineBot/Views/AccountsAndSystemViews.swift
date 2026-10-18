@@ -87,6 +87,50 @@ struct SystemView: View {
             Card {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {
+                        Text("本機大模型（Ollama）").font(.headline)
+                        Tag(text: app.settings.useOllama ? app.ollamaState.label : "已關閉",
+                            color: app.settings.useOllama && app.ollamaState.isReady ? .green : .orange)
+                        Spacer()
+                        Button("重新檢查") { Task { await app.refreshOllama() } }
+                    }
+                    Toggle("使用 Qwen 回答、bge-m3 語意檢索", isOn: $app.settings.useOllama)
+                    Text("回答與檢索都在這台 Mac 上執行，不用 API key。Ollama 沒開或逾時會自動改用 Apple 本機模型。")
+                        .font(.caption).foregroundStyle(.secondary)
+                    Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 6) {
+                        GridRow {
+                            Text("回答模型").font(.callout)
+                            TextField("qwen3.5:9b", text: $app.settings.chatModel).textFieldStyle(.roundedBorder)
+                        }
+                        GridRow {
+                            Text("向量模型").font(.callout)
+                            TextField("bge-m3", text: $app.settings.embedModel).textFieldStyle(.roundedBorder)
+                        }
+                        GridRow {
+                            Text("Ollama 網址").font(.callout)
+                            TextField("http://127.0.0.1:11434", text: $app.settings.ollamaURL).textFieldStyle(.roundedBorder)
+                        }
+                    }
+                    .disabled(!app.settings.useOllama)
+                    Toggle("Qwen 無法使用時改用 Apple 本機模型", isOn: $app.settings.appleFallback)
+                        .disabled(!app.settings.useOllama)
+                    if case .missingModels(let m) = app.ollamaState {
+                        Text("請先在終端機下載：" + m.map { "ollama pull \($0)" }.joined(separator: "；"))
+                            .font(.caption.monospaced()).foregroundStyle(.orange).textSelection(.enabled)
+                    } else if app.ollamaState == .notRunning {
+                        Text("請打開 Ollama App（或在終端機執行 ollama serve）").font(.caption).foregroundStyle(.orange)
+                    }
+                    HStack {
+                        Text("向量索引：\(app.vectorCount) 段").font(.callout)
+                        Spacer()
+                        Button("重建向量索引") { Task { await app.buildVectorIndex(force: true) } }
+                            .disabled(!(app.settings.useOllama && app.ollamaState.isReady))
+                    }
+                }
+            }
+
+            Card {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
                         Text("Apple Intelligence 本機模型").font(.headline)
                         Tag(text: app.aiStatus.isAvailable ? "可用" : "不可用", color: app.aiStatus.isAvailable ? .green : .orange)
                         Spacer()
@@ -108,7 +152,7 @@ struct SystemView: View {
                                 aiRunning = false
                             }
                         }
-                        .disabled(aiRunning || !app.aiStatus.isAvailable)
+                        .disabled(aiRunning || !app.aiReady)
                     }
                     if !aiResult.isEmpty {
                         Text(aiResult).font(.callout).textSelection(.enabled)

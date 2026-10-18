@@ -346,6 +346,35 @@ struct AppSettings: Codable {
     var selectedAccountId: UUID?
     var onboardingCompleted: Bool = false
     var autoStart: Bool = true
+
+    // 本機大模型（Ollama）
+    var useOllama: Bool = true
+    var ollamaURL: String = "http://127.0.0.1:11434"
+    var chatModel: String = "qwen3.5:9b"
+    var embedModel: String = "bge-m3"
+    /// Qwen 沒開、逾時或格式錯誤時改用 Apple 本機模型
+    var appleFallback: Bool = true
+
+    init() {}
+
+    /// 舊版設定檔沒有新欄位也要讀得進來，缺的用預設值（不然會整個重設）
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let d = AppSettings()
+        port = try c.decodeIfPresent(UInt16.self, forKey: .port) ?? d.port
+        aiAutoReply = try c.decodeIfPresent(Bool.self, forKey: .aiAutoReply) ?? d.aiAutoReply
+        tunnelMode = try c.decodeIfPresent(TunnelMode.self, forKey: .tunnelMode) ?? d.tunnelMode
+        namedHostname = try c.decodeIfPresent(String.self, forKey: .namedHostname) ?? d.namedHostname
+        cloudflaredPath = try c.decodeIfPresent(String.self, forKey: .cloudflaredPath) ?? d.cloudflaredPath
+        selectedAccountId = try c.decodeIfPresent(UUID.self, forKey: .selectedAccountId)
+        onboardingCompleted = try c.decodeIfPresent(Bool.self, forKey: .onboardingCompleted) ?? d.onboardingCompleted
+        autoStart = try c.decodeIfPresent(Bool.self, forKey: .autoStart) ?? d.autoStart
+        useOllama = try c.decodeIfPresent(Bool.self, forKey: .useOllama) ?? d.useOllama
+        ollamaURL = try c.decodeIfPresent(String.self, forKey: .ollamaURL) ?? d.ollamaURL
+        chatModel = try c.decodeIfPresent(String.self, forKey: .chatModel) ?? d.chatModel
+        embedModel = try c.decodeIfPresent(String.self, forKey: .embedModel) ?? d.embedModel
+        appleFallback = try c.decodeIfPresent(Bool.self, forKey: .appleFallback) ?? d.appleFallback
+    }
 }
 
 // MARK: - 日誌

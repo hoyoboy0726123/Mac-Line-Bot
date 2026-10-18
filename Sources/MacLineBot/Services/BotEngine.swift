@@ -202,8 +202,11 @@ extension AppState {
         let followUp = KnowledgeRetriever.isFollowUp(text) ? previous : nil
         let searchText = followUp.map { "\($0) \(text)" } ?? text
 
-        if let faq = KnowledgeRetriever.matchFAQ(text, in: d.faqs)
-            ?? followUp.flatMap({ _ in KnowledgeRetriever.matchFAQ(searchText, in: d.faqs) }) {
+        // 同時提到兩個以上型號是比較題：只用「A 和 B 比較」那類 FAQ（由資料算好的差異），沒有就交給 AI
+        let comparing = KnowledgeRetriever.modelTokens(text).count >= 2
+        let candidates = comparing ? d.faqs.filter { $0.question.contains("比較") } : d.faqs
+        if let faq = KnowledgeRetriever.matchFAQ(text, in: candidates)
+            ?? followUp.flatMap({ _ in comparing ? nil : KnowledgeRetriever.matchFAQ(searchText, in: d.faqs) }) {
             update(id) { d in
                 d.today.faq += 1
                 if let i = d.faqs.firstIndex(where: { $0.id == faq.id }) { d.faqs[i].hitCount += 1 }
@@ -211,17 +214,21 @@ extension AppState {
             return BotReply(text: faq.answer, source: .faq)
         }
 
-        guard aiStatus.isAvailable else {
+        guard aiReady else {
             return unanswered(id, userId: userId, question: text)
         }
         Task { await api.startLoading(chatId: userId, seconds: 20) }
         let started = Date()
         do {
             // 有文件資料時，先請 AI 把口語問題轉成術語再搜尋（語意理解）
-            let terms = d.docs.isEmpty ? [] : ((try? await AIEngine.withTimeout(10) { await AIEngine.searchTerms(for: searchText) }) ?? [])
-            let knowledge = KnowledgeRetriever.context(for: searchText, data: d, terms: terms)
+            // 有 Qwen + bge-m3 時用向量語意檢索；沒有時才請 Apple 模型把口語轉成術語
+            let semantic = await semanticScores(for: searchText, data: d)
+            let terms = (semantic != nil || d.docs.isEmpty) ? [] : ((try? await AIEngine.withTimeout(10) { await AIEngine.searchTerms(for: searchText) }) ?? [])
+            let big = AIEngine.config.usingOllama   // Qwen context 大，可以多放一些資料
+            let knowledge = KnowledgeRetriever.context(for: searchText, data: d, terms: terms, semantic: semantic,
+                                                       budget: big ? 3000 : 1800, maxPieces: big ? 5 : 4)
             let history = Array(conv.messages.dropLast())
-            let answer = try await AIEngine.withTimeout(40) {
+            let answer = try await AIEngine.withTimeout(50) {
                 try await AIEngine.answer(question: text, knowledge: knowledge, history: history, store: d.store, rules: rules)
             }
             let ms = Date().timeIntervalSince(started) * 1000
@@ -243,6 +250,7 @@ extension AppState {
                     $0.today.ai += 1
                     $0.today.aiMilliseconds += ms
                 }
+                accountLog(id, String(format: "AI 回答模型：%@（檢索：%@）", answer.model, semantic == nil ? "關鍵詞" : "向量"))
                 return BotReply(text: answer.reply, source: .ai)
             }
         } catch let timeout as AITimeoutError {
@@ -516,7 +524,7 @@ extension AppState {
         let before = draft
         ReservationParser.fill(&draft, from: text)
         let stillMissing = draft.date == nil || draft.time == nil || draft.people == nil
-        if stillMissing || askingName, aiStatus.isAvailable {
+        if stillMissing || askingName, aiReady {
             let today = ReservationParser.display(Date())
             if let slots = await AIEngine.extractSlots(from: text, today: today) {
                 if draft.date == nil, let s = slots.date, !s.isEmpty { draft.date = ReservationParser.date(in: s) ?? s }
@@ -601,15 +609,19 @@ extension AppState {
         if rules.reservationEnabled, KnowledgeRetriever.containsAny(text, rules.reservationKeywords) != nil {
             return BotReply(text: "（會開始預約收單流程）", source: .reservation)
         }
-        if let faq = KnowledgeRetriever.matchFAQ(text, in: d.faqs) {
+        let comparing = KnowledgeRetriever.modelTokens(text).count >= 2
+        if let faq = KnowledgeRetriever.matchFAQ(text, in: comparing ? d.faqs.filter { $0.question.contains("比較") } : d.faqs) {
             return BotReply(text: faq.answer, source: .faq)
         }
-        guard aiStatus.isAvailable else { return BotReply(text: rules.fallbackMessage, source: .fallback) }
+        guard aiReady else { return BotReply(text: rules.fallbackMessage, source: .fallback) }
         let started = Date()
         do {
-            let terms = d.docs.isEmpty ? [] : ((try? await AIEngine.withTimeout(10) { await AIEngine.searchTerms(for: text) }) ?? [])
-            let knowledge = KnowledgeRetriever.context(for: text, data: d, terms: terms)
-            let a = try await AIEngine.withTimeout(40) {
+            let semantic = await semanticScores(for: text, data: d)
+            let terms = (semantic != nil || d.docs.isEmpty) ? [] : ((try? await AIEngine.withTimeout(10) { await AIEngine.searchTerms(for: text) }) ?? [])
+            let big = AIEngine.config.usingOllama
+            let knowledge = KnowledgeRetriever.context(for: text, data: d, terms: terms, semantic: semantic,
+                                                       budget: big ? 3000 : 1800, maxPieces: big ? 5 : 4)
+            let a = try await AIEngine.withTimeout(50) {
                 try await AIEngine.answer(question: text, knowledge: knowledge, history: [], store: d.store, rules: rules)
             }
             let latency = Date().timeIntervalSince(started)
