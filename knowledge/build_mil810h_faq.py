@@ -416,6 +416,23 @@ for i in range(len(keys)):
         kws = [f"{x}+{y}" for x in ENTITIES[a][1] for y in ENTITIES[b][1]]
         faqs.append((f"{ENTITIES[a][0]} 和 {ENTITIES[b][0]} 比較", compare_answer(a, b), kws))
 
+# 4.6) 一次列出所有測試項目的詳細條件（一次問全部時，AI 拿不到全部資料，改由資料直接產生）
+CODES = {"altitude": "500.6", "hot": "501.7", "cold": "502.7", "tshock": "503.7", "solar": "505.7", "humidity": "507.6",
+         "dust": "510.7", "explosive": "511.7", "vibration": "514.8", "drop": "516.8", "shock": "516.8", "freeze": "524.1", "ship": "528.1"}
+all_lines = ["華碩商用筆電 MIL-STD-810H 各測試項目的詳細條件："]
+for i, (test, t) in enumerate(TESTS.items(), 1):
+    all_lines.append("")
+    all_lines.append(f"{i}. {t['short']}（{CODES[test]}）")
+    all_lines += ["・" + v for v in t["params"].values()]
+    passed = [ENTITIES[m][0] for m in ORDER if MODELS[m]["tests"].get(test)]
+    all_lines.append("通過型號：" + ("、".join(passed) if passed else "P5405CSA 的測試說明有列出（結果總表未列）"))
+all_lines += ["", "想看某一台型號的條件，可以問例如「P5 低溫測試」", NOTE]
+faqs.append(("所有測試項目的詳細條件", "\n".join(all_lines), [
+    "列出+項目+條件", "列出+項目+詳細", "所有+條件", "全部+條件", "每一項+條件", "每個項目+條件", "各項目+條件", "各項+條件",
+    "這些項目+條件", "這些項目+詳細", "所有+測試+詳細", "全部+測試+詳細", "所有項目", "全部項目+條件", "詳細+測試條件+列出",
+    "測試條件+有哪些", "完整+條件", "全部的條件",
+]))
+
 # 5) 一般問題
 general = [
     ("MIL-STD-810H 是什麼",
