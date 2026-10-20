@@ -348,7 +348,10 @@ struct SetupWizardView: View {
                     } else {
                         accountId = app.addAccount(name: info.displayName, secret: s, token: t).id
                     }
-                    if let id = accountId { try? await app.refreshBotInfo(id) }
+                    if let id = accountId {
+                        try? await app.refreshBotInfo(id)
+                        Task { await app.accountConnected(id) }
+                    }
                     verifying = false
                     step += 1
                 } catch {

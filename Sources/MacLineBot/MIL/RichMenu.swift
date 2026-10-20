@@ -95,9 +95,20 @@ extension AppState {
         Array(Set((data[id]?.conversations.keys).map(Array.init) ?? []).union(account(id)?.ownerUserIds ?? []))
     }
 
-    /// 啟動時：LINE 上的預設選單不是我們的，就自動套用並取代舊選單
-    func ensureRichMenus() async {
-        for a in accounts where a.hasCredentials && a.isEnabled {
+    /// 接上新的 LINE 金鑰（新增帳號或換金鑰）：還沒產生過軍規知識庫就先產生，再套用圖文選單
+    func accountConnected(_ id: UUID) async {
+        if milCatalogs[id]?.lastGenerated == nil {
+            let selected = settings.selectedAccountId
+            settings.selectedAccountId = id
+            await generateMILKnowledge()
+            settings.selectedAccountId = selected
+        }
+        await ensureRichMenus(only: id)
+    }
+
+    /// 啟動時（或接上新金鑰時）：LINE 上的預設選單不是我們的，就自動套用並取代舊選單
+    func ensureRichMenus(only: UUID? = nil) async {
+        for a in accounts where a.hasCredentials && a.isEnabled && (only == nil || a.id == only) {
             let api = LineAPI(token: a.channelAccessToken)
             // LINE 的選單 API 有頻率限制（429），等一下再試，最多 4 次
             let waits = [30, 120, 300, 600, 1200]

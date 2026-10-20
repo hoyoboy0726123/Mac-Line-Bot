@@ -69,6 +69,7 @@ struct LineConnectionView: View {
                                 try await app.refreshBotInfo(account.id)
                                 message = "✅ 連線成功"
                                 if app.tunnel.publicURL != nil { await app.syncWebhook(account.id) }
+                                Task { await app.accountConnected(account.id) }
                             } catch {
                                 message = "❌ \(error.localizedDescription)"
                             }
