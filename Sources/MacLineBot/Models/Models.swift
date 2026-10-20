@@ -187,6 +187,8 @@ enum ConversationMode: String, Codable {
 }
 
 struct Conversation: Identifiable, Codable, Hashable {
+    /// 店家正在跟這位顧客對話（用 #代碼 回覆過、還沒自動交還）；只是等真人的話 AI 照常回答
+    var humanChatting: Bool { mode == .human && lastOwnerReplyAt != nil }
     /// LINE userId
     var id: String
     var displayName: String = "LINE 使用者"

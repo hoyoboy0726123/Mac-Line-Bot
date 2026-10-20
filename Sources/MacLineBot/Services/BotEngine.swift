@@ -145,7 +145,7 @@ extension AppState {
         accountLog(id, "收到 \(name)：\(text.prefix(40))")
 
         guard message.type == "text" else {
-            if message.type != "sticker", conversation(id, userId)?.mode == .ai, settings.aiAutoReply,
+            if message.type != "sticker", let c = conversation(id, userId), !c.humanChatting, settings.aiAutoReply,
                let token = event.replyToken {
                 let r = "收到囉！目前我只看得懂文字訊息，可以用文字描述您的問題，或輸入「真人」請專人協助 🙏"
                 try? await api.reply(token, [LineMessage.text(r)])
@@ -179,7 +179,8 @@ extension AppState {
     private func decide(text: String, userId: String, account: BotAccount, api: LineAPI) async -> BotReply? {
         let id = account.id
         guard settings.aiAutoReply else { return nil }
-        guard let conv = conversation(id, userId), conv.mode == .ai else { return nil }
+        // 轉人工後 AI 照常回答；只有店家真的回覆了顧客，AI 才暫停讓你們對話（一段時間沒動靜自動恢復）
+        guard let conv = conversation(id, userId), !conv.humanChatting else { return nil }
         let d = data[id] ?? AccountData()
         let rules = d.rules
 
@@ -276,7 +277,7 @@ extension AppState {
         if rules.notifyUnanswered, isNew {
             let code = conversation(id, userId)?.handoffCode ?? ""
             Task {
-                await notifyOwners(id, [LineMessage.text("❓ \(name) 問了知識庫沒有的問題：\n「\(question.prefix(200))」\n\n已加入待補清單。要直接回覆請傳：\n#\(code) 你的回覆")])
+                await notifyOwners(id, [LineMessage.text("❓ \(name) 問了知識庫沒有的問題：\n「\(question.prefix(200))」\n\n已加入待補清單。要直接回覆請傳：\n#\(code) 你的回覆")], about: userId)
             }
         }
         return BotReply(text: rules.fallbackMessage, source: .fallback)
@@ -286,6 +287,8 @@ extension AppState {
 
     private func startHandoff(_ id: UUID, userId: String, reason: String, lastText: String, source: ReplySource) async -> BotReply {
         let rules = data[id]?.rules ?? ReplyRules()
+        // 已經在等真人了：不重複通知店家
+        if conversation(id, userId)?.mode == .human { return BotReply(text: rules.handoffMessage, source: source) }
         update(id) { d in
             d.today.handoff += 1
             d.conversations[userId]?.mode = .human
@@ -300,13 +303,8 @@ extension AppState {
         let code = conv?.handoffCode ?? ""
         accountLog(id, "handoff：\(reason)")
         await notifyOwners(id, [
-            LineMessage.text("🙋 \(name) 需要專人協助\n原因：\(reason)\n最新訊息：「\(lastText.prefix(200))」\n\n直接傳「#\(code) 你的回覆」就會轉給顧客，你回覆後 AI 會自動閃開。"),
-            LineMessage.buttons(
-                text: "處理完畢後可以把 \(name) 交還給 AI",
-                actions: [("交還 AI", "action=resume&uid=\(userId)")],
-                altText: "\(name) 需要專人協助"
-            ),
-        ])
+            LineMessage.text("🙋 \(name) 需要專人協助\n原因：\(reason)\n最新訊息：「\(lastText.prefix(200))」\n\n直接傳「#\(code) 你的回覆」就會轉給顧客。等你回覆前 AI 會照常回答；你回覆後 AI 暫停 \(rules.humanModeMinutes) 分鐘讓你們對話，之後自動恢復。"),
+        ], about: userId)
         return BotReply(text: rules.handoffMessage, source: source)
     }
 
@@ -648,7 +646,7 @@ extension AppState {
             let minutes = Int(now.timeIntervalSince(lastCustomer) / 60)
             let preview = conv.messages.last(where: { $0.role == .customer })?.text.prefix(100) ?? ""
             Task {
-                await notifyOwners(id, [LineMessage.text("⏰ 待回覆提醒\n\(conv.displayName) 已經等了 \(minutes) 分鐘\n最新訊息：「\(preview)」\n\n回覆請傳：#\(conv.handoffCode) 你的回覆")])
+                await notifyOwners(id, [LineMessage.text("⏰ 待回覆提醒\n\(conv.displayName) 已經等了 \(minutes) 分鐘\n最新訊息：「\(preview)」\n\n回覆請傳：#\(conv.handoffCode) 你的回覆")], about: conv.id)
             }
         }
     }

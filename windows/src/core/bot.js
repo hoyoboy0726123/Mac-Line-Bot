@@ -141,7 +141,7 @@ P.handleMessage = async function (event, userId, account) {
 
   if (message.type !== 'text') {
     const conv = this.conversation(id, userId);
-    if (message.type !== 'sticker' && conv && conv.mode === 'ai' && this.settings.aiAutoReply && event.replyToken) {
+    if (message.type !== 'sticker' && conv && !humanChatting(conv) && this.settings.aiAutoReply && event.replyToken) {
       const r = '收到囉！目前我只看得懂文字訊息，可以用文字描述您的問題，或輸入「真人」請專人協助 🙏';
       await api.reply(event.replyToken, [LineMessage.text(r)]).catch(() => {});
       this.appendMessage(id, userId, models.makeMessage('bot', r, 'system'));
@@ -182,12 +182,16 @@ P.handleMessage = async function (event, userId, account) {
   }
 };
 
+/// 店家正在跟這位顧客對話（用 #代碼 回覆過、還沒自動交還）
+const humanChatting = (c) => c.mode === 'human' && !!c.lastOwnerReplyAt;
+
 /// 決定要怎麼回：轉人工 → 預約 → FAQ → AI → 待補
 P.decide = async function (text, userId, account, api) {
   const id = account.id;
   if (!this.settings.aiAutoReply) return null;
   const conv = this.conversation(id, userId);
-  if (!conv || conv.mode !== 'ai') return null;
+  // 轉人工後 AI 照常回答；只有店家真的回覆了顧客，AI 才暫停讓你們對話（一段時間沒動靜自動恢復）
+  if (!conv || humanChatting(conv)) return null;
   const d = this.data[id];
   const rules = d.rules;
 
@@ -291,7 +295,7 @@ P.unanswered = function (id, userId, question) {
   });
   this.accountLog(id, `知識庫沒有答案，已加入待補清單：${prefix(question, 30)}`);
   if (rules.notifyUnanswered && isNew) {
-    this.notifyOwners(id, [LineMessage.text(`❓ ${name} 問了知識庫沒有的問題：\n「${prefix(question, 200)}」\n\n已加入待補清單。要直接回覆請傳：\n#${conv.handoffCode || ''} 你的回覆`)]);
+    this.notifyOwners(id, [LineMessage.text(`❓ ${name} 問了知識庫沒有的問題：\n「${prefix(question, 200)}」\n\n已加入待補清單。要直接回覆請傳：\n#${conv.handoffCode || ''} 你的回覆`)], userId);
   }
   return reply(rules.fallbackMessage, 'fallback');
 };
@@ -300,6 +304,9 @@ P.unanswered = function (id, userId, question) {
 
 P.startHandoff = async function (id, userId, reason, lastText, source) {
   const rules = this.data[id].rules;
+  // 已經在等真人了：不重複通知店家
+  const waiting = (this.conversation(id, userId) || {}).mode === 'human';
+  if (waiting) return reply(rules.handoffMessage, source);
   this.update(id, (d) => {
     today(d).handoff += 1;
     const c = d.conversations[userId];
@@ -311,9 +318,8 @@ P.startHandoff = async function (id, userId, reason, lastText, source) {
   const code = conv.handoffCode || '';
   this.accountLog(id, `handoff：${reason}`);
   await this.notifyOwners(id, [
-    LineMessage.text(`🙋 ${name} 需要專人協助\n原因：${reason}\n最新訊息：「${prefix(lastText, 200)}」\n\n直接傳「#${code} 你的回覆」就會轉給顧客，你回覆後 AI 會自動閃開。`),
-    LineMessage.buttons(`處理完畢後可以把 ${name} 交還給 AI`, [['交還 AI', `action=resume&uid=${userId}`]], `${name} 需要專人協助`),
-  ]);
+    LineMessage.text(`🙋 ${name} 需要專人協助\n原因：${reason}\n最新訊息：「${prefix(lastText, 200)}」\n\n直接傳「#${code} 你的回覆」就會轉給顧客。等你回覆前 AI 會照常回答；你回覆後 AI 暫停 ${rules.humanModeMinutes} 分鐘讓你們對話，之後自動恢復。`),
+  ], userId);
   return reply(rules.handoffMessage, source);
 };
 
@@ -641,7 +647,7 @@ P.runConversationTimers = function (id, now) {
     this.update(id, (x) => { x.conversations[conv.id].reminderSent = true; });
     const minutes = Math.floor((now - lastCustomer) / 60000);
     const last = [...conv.messages].reverse().find((m) => m.role === 'customer');
-    this.notifyOwners(id, [LineMessage.text(`⏰ 待回覆提醒\n${conv.displayName} 已經等了 ${minutes} 分鐘\n最新訊息：「${prefix(last ? last.text : '', 100)}」\n\n回覆請傳：#${conv.handoffCode} 你的回覆`)]);
+    this.notifyOwners(id, [LineMessage.text(`⏰ 待回覆提醒\n${conv.displayName} 已經等了 ${minutes} 分鐘\n最新訊息：「${prefix(last ? last.text : '', 100)}」\n\n回覆請傳：#${conv.handoffCode} 你的回覆`)], conv.id);
   }
 };
 
