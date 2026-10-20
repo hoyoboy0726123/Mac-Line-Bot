@@ -130,7 +130,7 @@ extension AppState {
         // 店家的指令（#代碼 回覆、交還、摘要…）
         if message.type == "text", account.ownerUserIds.contains(userId),
            let reply = await handleOwnerCommand(text, account: account) {
-            if let token = event.replyToken { try? await api.reply(token, [LineMessage.text(reply)]) }
+            if let token = event.replyToken { try? await api.reply(token, [reply.message]) }
             return
         }
 
@@ -303,8 +303,8 @@ extension AppState {
         let code = conv?.handoffCode ?? ""
         accountLog(id, "handoff：\(reason)")
         await notifyOwners(id, [
-            LineMessage.text("🙋 \(name) 需要專人協助\n原因：\(reason)\n最新訊息：「\(lastText.prefix(200))」\n\n直接傳「#\(code) 你的回覆」就會轉給顧客。等你回覆前 AI 會照常回答；你回覆後 AI 暫停 \(rules.humanModeMinutes) 分鐘讓你們對話，之後自動恢復。"),
-        ], about: userId)
+            LineMessage.text("🙋 \(name) 需要專人協助\n原因：\(reason)\n最新訊息：「\(lastText.prefix(200))」\n\n直接傳「#\(code) 你的回覆」就會轉給顧客。等你回覆前 AI 會照常回答；你回覆後 AI 暫停讓你們對話，處理完按「交還 AI」或 \(rules.humanModeMinutes) 分鐘後自動恢復。"),
+        ])
         return BotReply(text: rules.handoffMessage, source: source)
     }
 
@@ -357,7 +357,19 @@ extension AppState {
         return "✅ 綁定成功！之後轉人工、預約、每日摘要、斷線通知都會推播到這裡。\n\n傳「指令」可以看所有可用指令。"
     }
 
-    private func handleOwnerCommand(_ raw: String, account: BotAccount) async -> String? {
+    /// 店家指令的回覆：一般是文字；回覆顧客成功時附「交還 AI」按鈕
+    struct OwnerReply: ExpressibleByStringInterpolation {
+        var text: String
+        var resumeUid: String?
+        init(_ text: String, resumeUid: String? = nil) { self.text = text; self.resumeUid = resumeUid }
+        init(stringLiteral value: String) { text = value }
+        var message: LineAPI.Message {
+            guard let uid = resumeUid else { return LineMessage.text(text) }
+            return LineMessage.buttons(text: text, actions: [("交還 AI", "action=resume&uid=\(uid)")], altText: String(text.prefix(40)))
+        }
+    }
+
+    private func handleOwnerCommand(_ raw: String, account: BotAccount) async -> OwnerReply? {
         let id = account.id
         let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         let d = data[id] ?? AccountData()
@@ -372,7 +384,8 @@ extension AppState {
             }
             guard !content.isEmpty else { return "請在代碼後面加上要回覆的內容，例如：#\(code) 您好，我是店長" }
             let ok = await sendOwnerMessage(id, userId: conv.id, text: content)
-            return ok ? "已傳送給 \(conv.displayName) ✅\nAI 會先暫停，\(d.rules.humanModeMinutes) 分鐘沒有新回覆就自動交還 AI。" : "傳送失敗，請稍後再試。"
+            // 回覆成功附「交還 AI」按鈕：處理完按一下就切回 AI；不按的話一段時間沒動靜也會自動切回
+            return ok ? OwnerReply("已傳送給 \(conv.displayName) ✅\nAI 先暫停讓你們對話；處理完按「交還 AI」，或 \(d.rules.humanModeMinutes) 分鐘沒有新對話自動交還。", resumeUid: conv.id) : "傳送失敗，請稍後再試。"
         }
         for prefix in ["交還", "恢復"] where text.hasPrefix(prefix) {
             let code = text.dropFirst(prefix.count).trimmingCharacters(in: .whitespaces).replacingOccurrences(of: "#", with: "").uppercased()
@@ -382,16 +395,16 @@ extension AppState {
         }
         switch text {
         case "摘要", "今日摘要":
-            return dailySummary(id)
+            return OwnerReply(dailySummary(id))
         case "待補", "待補清單":
             let list = d.pending.prefix(10).enumerated().map { "\($0.offset + 1). \($0.element.question)（\($0.element.count) 次）" }
-            return list.isEmpty ? "目前沒有待補問題 🎉" : "📝 待補清單（到 App 的知識庫可一鍵補成 FAQ）\n" + list.joined(separator: "\n")
+            return OwnerReply(list.isEmpty ? "目前沒有待補問題 🎉" : "📝 待補清單（到 App 的知識庫可一鍵補成 FAQ）\n" + list.joined(separator: "\n"))
         case "預約", "待確認":
             let list = d.reservations.filter { $0.status == .pending }.prefix(10).map { "・\($0.customerName) \($0.date) \($0.time) \($0.people) 位" }
-            return list.isEmpty ? "目前沒有待確認的預約。" : "📅 待確認預約\n" + list.joined(separator: "\n")
+            return OwnerReply(list.isEmpty ? "目前沒有待確認的預約。" : "📅 待確認預約\n" + list.joined(separator: "\n"))
         case "待回覆":
             let list = d.conversations.values.filter { $0.mode == .human }.map { "・#\($0.handoffCode) \($0.displayName)" }
-            return list.isEmpty ? "目前沒有等待真人回覆的顧客。" : "🙋 等待真人回覆\n" + list.joined(separator: "\n")
+            return OwnerReply(list.isEmpty ? "目前沒有等待真人回覆的顧客。" : "🙋 等待真人回覆\n" + list.joined(separator: "\n"))
         case "指令", "說明", "help":
             return """
             🛠 Mac-Line-Bot 指令
@@ -646,7 +659,7 @@ extension AppState {
             let minutes = Int(now.timeIntervalSince(lastCustomer) / 60)
             let preview = conv.messages.last(where: { $0.role == .customer })?.text.prefix(100) ?? ""
             Task {
-                await notifyOwners(id, [LineMessage.text("⏰ 待回覆提醒\n\(conv.displayName) 已經等了 \(minutes) 分鐘\n最新訊息：「\(preview)」\n\n回覆請傳：#\(conv.handoffCode) 你的回覆")], about: conv.id)
+                await notifyOwners(id, [LineMessage.text("⏰ 待回覆提醒\n\(conv.displayName) 已經等了 \(minutes) 分鐘\n最新訊息：「\(preview)」\n\n回覆請傳：#\(conv.handoffCode) 你的回覆")])
             }
         }
     }
