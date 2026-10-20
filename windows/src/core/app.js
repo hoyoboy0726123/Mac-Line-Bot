@@ -487,11 +487,18 @@ class App extends EventEmitter {
     return [...new Set([...Object.keys((this.data[id] || {}).conversations || {}), ...((a && a.ownerUserIds) || [])])];
   }
 
-  /// 啟動時：LINE 上的預設選單不是我們的，就自動套用並取代舊選單
-  async ensureRichMenus() {
+  /// 接上新的 LINE 金鑰（新增帳號或換金鑰）：還沒產生過軍規知識庫就先產生，再套用圖文選單
+  async accountConnected(id) {
+    const c = this.milCatalog(id);
+    if (c && !c.lastGenerated) await this.generateMILKnowledge(id);
+    await this.ensureRichMenus(id);
+  }
+
+  /// 啟動時（或接上新金鑰時）：LINE 上的預設選單不是我們的，就自動套用並取代舊選單
+  async ensureRichMenus(only) {
     const richmenu = require('./richmenu');
     const waits = [30, 120, 300, 600, 1200];
-    for (const a of this.accounts.filter((x) => hasCredentials(x) && x.isEnabled)) {
+    for (const a of this.accounts.filter((x) => hasCredentials(x) && x.isEnabled && (!only || x.id === only))) {
       const api = new LineAPI(a.channelAccessToken);
       // LINE 的選單 API 有頻率限制（429），隔一段時間再試
       for (let attempt = 1; attempt <= waits.length + 1; attempt++) {

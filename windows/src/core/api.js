@@ -197,6 +197,7 @@ async function handleAPI(app, method, path, q, body, ctx) {
       const a = app.addAccount(info.displayName, secret, token);
       await app.refreshBotInfo(a.id).catch(() => {});
       if (app.tunnel.publicURL) app.syncWebhook(a.id);
+      app.accountConnected(a.id).catch(() => {});
       return ok({ id: a.id });
     }
     case '/api/accounts/credentials': {
@@ -212,6 +213,7 @@ async function handleAPI(app, method, path, q, body, ctx) {
         return fail(`驗證失敗：${e.message}`);
       }
       if (app.tunnel.publicURL) await app.syncWebhook(a.id);
+      app.accountConnected(a.id).catch(() => {});
       return ok();
     }
     case '/api/accounts/update': {
