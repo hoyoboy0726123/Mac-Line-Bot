@@ -466,12 +466,13 @@ class App extends EventEmitter {
     }
   }
 
-  async notifyOwners(id, messages) {
+  /// about＝通知內容是關於哪位顧客；店家自己在聊天室測試時不通知他自己（不然通知會混在對話裡）
+  async notifyOwners(id, messages, about) {
     const a = this.account(id);
     if (!a || !hasCredentials(a)) return;
     if (!a.ownerUserIds.length) { this.accountLog(id, 'warning', '尚未綁定店家 LINE，無法推播通知'); return; }
     const api = new LineAPI(a.channelAccessToken);
-    for (const owner of a.ownerUserIds) {
+    for (const owner of a.ownerUserIds.filter((o) => o !== about)) {
       try {
         await api.push(owner, messages);
         this.accountLog(id, `已推播通知給 ...${suffix(owner, 6)}`);

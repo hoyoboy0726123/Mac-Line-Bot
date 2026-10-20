@@ -184,7 +184,7 @@
             <button class="btn plain mobile-only" @click="back" title="返回">‹</button>
             <Avatar :name="conv.displayName" :url="conv.pictureURL" :size="34"/>
             <div class="grow"><b>{{ conv.displayName }}</b>
-              <div class="small" :class="conv.mode === 'human' ? 'warn' : 'muted'">{{ conv.mode === 'human' ? '真人接手中・代碼 #' + conv.handoffCode : 'AI 自動回覆中' }}</div></div>
+              <div class="small" :class="conv.mode === 'human' ? 'warn' : 'muted'">{{ conv.mode === 'human' ? (conv.lastOwnerReplyAt ? '真人對話中（AI 暫停）・代碼 #' : '等待真人（AI 照常回答）・代碼 #') + conv.handoffCode : 'AI 自動回覆中' }}</div></div>
             <button v-if="conv.mode === 'human'" class="btn" @click="resume"><Icon name="sparkles"/>交還 AI</button>
             <button v-else class="btn" @click="takeover"><Icon name="user"/>我來接手</button>
           </div>

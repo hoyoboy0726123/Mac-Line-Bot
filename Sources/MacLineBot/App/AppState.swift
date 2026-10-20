@@ -619,14 +619,15 @@ final class AppState {
 
     // MARK: - 通知店家
 
-    func notifyOwners(_ id: UUID, _ messages: [LineAPI.Message]) async {
+    /// about＝通知內容是關於哪位顧客；店家自己在聊天室測試時不通知他自己（不然通知會混在對話裡）
+    func notifyOwners(_ id: UUID, _ messages: [LineAPI.Message], about: String? = nil) async {
         guard let a = account(id), a.hasCredentials else { return }
         guard !a.ownerUserIds.isEmpty else {
             accountLog(id, .warning, "尚未綁定店家 LINE，無法推播通知")
             return
         }
         let api = LineAPI(token: a.channelAccessToken)
-        for owner in a.ownerUserIds {
+        for owner in a.ownerUserIds where owner != about {
             do {
                 try await api.push(to: owner, messages)
                 accountLog(id, "已推播通知給 ...\(owner.suffix(6))")

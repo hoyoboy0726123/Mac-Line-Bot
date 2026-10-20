@@ -135,7 +135,7 @@ struct ChatView: View {
             AvatarView(name: conversation.displayName, url: conversation.pictureURL, size: 34)
             VStack(alignment: .leading, spacing: 1) {
                 Text(conversation.displayName).font(.headline)
-                Text(conversation.mode == .human ? "真人接手中・代碼 #\(conversation.handoffCode)" : "AI 自動回覆中")
+                Text(conversation.mode == .human ? (conversation.humanChatting ? "真人對話中（AI 暫停）" : "等待真人（AI 照常回答）") + "・代碼 #\(conversation.handoffCode)" : "AI 自動回覆中")
                     .font(.caption).foregroundStyle(conversation.mode == .human ? Color.orange : Color.secondary)
             }
             Spacer()
