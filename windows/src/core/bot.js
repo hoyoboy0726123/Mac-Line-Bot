@@ -126,7 +126,7 @@ P.handleMessage = async function (event, userId, account) {
   // 店家的指令（#代碼 回覆、交還、摘要…）
   if (message.type === 'text' && account.ownerUserIds.includes(userId)) {
     const r = await this.handleOwnerCommand(text, account);
-    if (r) { if (event.replyToken) await api.reply(event.replyToken, [LineMessage.text(r)]).catch(() => {}); return; }
+    if (r) { if (event.replyToken) await api.reply(event.replyToken, [typeof r === 'string' ? LineMessage.text(r) : r]).catch(() => {}); return; }
   }
 
   await this.ensureConversation(id, userId, api);
@@ -318,8 +318,8 @@ P.startHandoff = async function (id, userId, reason, lastText, source) {
   const code = conv.handoffCode || '';
   this.accountLog(id, `handoff：${reason}`);
   await this.notifyOwners(id, [
-    LineMessage.text(`🙋 ${name} 需要專人協助\n原因：${reason}\n最新訊息：「${prefix(lastText, 200)}」\n\n直接傳「#${code} 你的回覆」就會轉給顧客。等你回覆前 AI 會照常回答；你回覆後 AI 暫停 ${rules.humanModeMinutes} 分鐘讓你們對話，之後自動恢復。`),
-  ], userId);
+    LineMessage.text(`🙋 ${name} 需要專人協助\n原因：${reason}\n最新訊息：「${prefix(lastText, 200)}」\n\n直接傳「#${code} 你的回覆」就會轉給顧客。等你回覆前 AI 會照常回答；你回覆後 AI 暫停讓你們對話，處理完按「交還 AI」或 ${rules.humanModeMinutes} 分鐘後自動恢復。`),
+  ]);
   return reply(rules.handoffMessage, source);
 };
 
@@ -396,7 +396,9 @@ P.handleOwnerCommand = async function (raw, account) {
     if (!conv) return `找不到代碼 #${code} 的顧客。`;
     if (!content) return `請在代碼後面加上要回覆的內容，例如：#${code} 您好，我是店長`;
     const ok = await this.sendOwnerMessage(id, conv.id, content);
-    return ok ? `已傳送給 ${conv.displayName} ✅\nAI 會先暫停，${d.rules.humanModeMinutes} 分鐘沒有新回覆就自動交還 AI。` : '傳送失敗，請稍後再試。';
+    // 回覆成功附「交還 AI」按鈕：處理完按一下就切回 AI；不按的話一段時間沒動靜也會自動切回
+    return ok ? LineMessage.buttons(`已傳送給 ${conv.displayName} ✅\nAI 先暫停讓你們對話；處理完按「交還 AI」，或 ${d.rules.humanModeMinutes} 分鐘沒有新對話自動交還。`,
+      [['交還 AI', `action=resume&uid=${conv.id}`]], `已傳送給 ${conv.displayName}`) : '傳送失敗，請稍後再試。';
   }
   for (const p of ['交還', '恢復']) {
     if (!text.startsWith(p)) continue;
@@ -647,7 +649,7 @@ P.runConversationTimers = function (id, now) {
     this.update(id, (x) => { x.conversations[conv.id].reminderSent = true; });
     const minutes = Math.floor((now - lastCustomer) / 60000);
     const last = [...conv.messages].reverse().find((m) => m.role === 'customer');
-    this.notifyOwners(id, [LineMessage.text(`⏰ 待回覆提醒\n${conv.displayName} 已經等了 ${minutes} 分鐘\n最新訊息：「${prefix(last ? last.text : '', 100)}」\n\n回覆請傳：#${conv.handoffCode} 你的回覆`)], conv.id);
+    this.notifyOwners(id, [LineMessage.text(`⏰ 待回覆提醒\n${conv.displayName} 已經等了 ${minutes} 分鐘\n最新訊息：「${prefix(last ? last.text : '', 100)}」\n\n回覆請傳：#${conv.handoffCode} 你的回覆`)]);
   }
 };
 
