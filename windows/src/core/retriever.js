@@ -197,8 +197,14 @@ function rank(text, all, semantic) {
 const refersToPrevious = (text) => /第\s*([0-9]+|[一二三四五六七八九十]+)\s*(項|個|點|款|台)/.test(text);
 
 /// 接著上一題的追問：「有通過的型號」「那低溫呢」
+/// 打招呼、道謝、「好的」這類寒暄：很短但不是追問
+const SMALL_TALK = /^(你好|您好|哈囉|嗨|hi|hello|hey|早安|午安|晚安|謝謝|謝啦|感謝|多謝|thanks?|thank you|ok|okay|好|好的|好喔|了解|瞭解|收到|知道了|沒問題|掰掰|再見|bye)(你|您|囉|啦|喔|哦|呀|唷)?[\s!！。.~～?？]*$/i;
+
+const isSmallTalk = (text) => SMALL_TALK.test((text || '').trim());
+
 function isFollowUp(text) {
   const t = (text || '').trim();
+  if (isSmallTalk(t)) return false;
   const markers = ['這些', '那些', '這個', '那個', '這項', '那項', '它', '其他', '還有', '呢', '哪些型號', '有通過', '哪幾台', '那', '上面', '剛剛'];
   return count(t) <= 6 || markers.some((m) => t.includes(m));
 }
@@ -212,6 +218,6 @@ function containsAny(text, keywords) {
 }
 
 module.exports = {
-  normalize, core, bigrams, similarity, matchFAQ, coverage, termScore, chunks, pieces, lexicalScore,
+  isSmallTalk, normalize, core, bigrams, similarity, matchFAQ, coverage, termScore, chunks, pieces, lexicalScore,
   modelTokens, context, rank, refersToPrevious, isFollowUp, hasKnowledge, containsAny,
 };

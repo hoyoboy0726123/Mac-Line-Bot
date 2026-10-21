@@ -1,0 +1,19 @@
+{
+  // 雲端 AI 實測用：有 Workers AI，LINE 是假的（Worker 內建），跟正式版完全分開
+  "name": "mac-line-bot-mil-aitest",
+  "account_id": "e88351a4fbf5a31abebeca4066f56d82", // Line-bot-Media
+  "main": "dist/aitest.js",
+  "no_bundle": true,
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "ai": { "binding": "AI" },
+  "vars": { "MLB_LINE_API": "https://fake-line.test" },
+  "assets": {
+    "directory": "dist/public",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*", "/webhook/*", "/health", "/aitest/*"]
+  },
+  "durable_objects": { "bindings": [{ "name": "MAIN", "class_name": "Main" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Main"] }],
+  "observability": { "enabled": true }
+}

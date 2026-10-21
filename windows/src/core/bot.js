@@ -240,7 +240,8 @@ P.decide = async function (text, userId, account, api) {
   }
 
   if (!this.aiReady) return this.unanswered(id, userId, text);
-  const agentOn = this.agentOn;
+  // 寒暄（你好、謝謝）不用查資料，交給一般 AI 回覆
+  const agentOn = this.agentOn && !retriever.isSmallTalk(text);
   api.startLoading(userId, agentOn ? 60 : 20);
   const started = Date.now();
   const history = conv.messages.slice(0, -1);

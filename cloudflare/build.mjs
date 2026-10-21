@@ -28,9 +28,11 @@ const cloudPlugin = {
   },
 };
 
+// 正式版 dist/worker.js；AI 實測版 dist/aitest.js（npm run build:aitest）
+const entry = process.env.ENTRY || 'worker';
 await build({
-  entryPoints: [path.join(here, 'src/worker.js')],
-  outfile: path.join(here, 'dist/worker.js'),
+  entryPoints: [path.join(here, `src/${entry}.js`)],
+  outfile: path.join(here, `dist/${entry}.js`),
   bundle: true,
   format: 'esm',
   platform: 'neutral',
@@ -55,5 +57,5 @@ fs.copyFileSync(require.resolve('vue/dist/vue.global.prod.js'), path.join(pub, '
 const icons = path.join(path.dirname(require.resolve('lucide-static/package.json')), 'icons');
 for (const f of fs.readdirSync(icons)) if (f.endsWith('.svg')) fs.copyFileSync(path.join(icons, f), path.join(pub, 'icons', f));
 fs.copyFileSync(path.join(core, 'assets/richmenu-mil.png'), path.join(pub, 'richmenu.png'));
-const size = (fs.statSync(path.join(here, 'dist/worker.js')).size / 1024).toFixed(0);
-console.log(`✅ 打包完成：dist/worker.js ${size} KB、網頁 ${fs.readdirSync(pub).length} 項`);
+const size = (fs.statSync(path.join(here, `dist/${entry}.js`)).size / 1024).toFixed(0);
+console.log(`✅ 打包完成：dist/${entry}.js ${size} KB、網頁 ${fs.readdirSync(pub).length} 項`);
