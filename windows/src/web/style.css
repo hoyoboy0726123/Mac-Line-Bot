@@ -110,8 +110,8 @@ a:hover { text-decoration: underline; }
 .ok-text { color: var(--green-d); }
 .clamp3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-wrap; }
 .clamp2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start; }
+.grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.grid2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: start; }
 
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 6px 12px; border-radius: 7px;
@@ -263,7 +263,7 @@ table.matrix tr:hover td { background: var(--hover); }
   .main { overflow: visible; }
   .page { padding: 16px; }
   .grid3 { grid-template-columns: 1fr 1fr; }
-  .grid2 { grid-template-columns: 1fr; }
+  .grid2 { grid-template-columns: minmax(0, 1fr); }
   .form-grid { grid-template-columns: 1fr; }
   .form-grid > .lbl { text-align: left; }
   .chat-wrap { height: calc(100vh - 52px); }
