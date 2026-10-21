@@ -182,6 +182,13 @@ P.handleMessage = async function (event, userId, account) {
   }
 };
 
+/// 軍規版：顧客常說「機種／機型」，FAQ 用「型號」；只說「通過機種」就是要型號清單
+const milWording = (text) => {
+  if (!isMIL) return text;
+  const t = text.replace(/機種|機型/g, '型號');
+  return /^(請|幫我)?(查|看|列出)?(一下)?(有)?(通過|過)(軍規)?(測試)?的?型號(清單|列表|有哪些)?[?？。!！]*$/.test(t.trim()) ? '有哪些型號通過軍規測試' : t;
+};
+
 /// 店家正在跟這位顧客對話（用 #代碼 回覆過、還沒自動交還）
 const humanChatting = (c) => c.mode === 'human' && !!c.lastOwnerReplyAt;
 
@@ -203,6 +210,8 @@ P.decide = async function (text, userId, account, api) {
     if (conv.reservationDraft) return this.continueReservation(id, userId, text);
     if (retriever.containsAny(text, rules.reservationKeywords)) return this.beginReservation(id, userId, text);
   }
+  // 「你是誰」「你能做什麼」→ 自我介紹＋可以怎麼問
+  if (retriever.isAboutBot(text)) return this.guideReply(id, 'aboutBot');
   // 追問（「有通過的型號」「那低溫呢」）要接上一題的主題
   const earlier = conv.messages.slice(0, -1);
   let previous = null;
@@ -226,7 +235,7 @@ P.decide = async function (text, userId, account, api) {
   const multiItem = !comparing && splitItems(text).length >= 2;
   const toAgent = this.agentOn && (multiItem || retriever.refersToPrevious(text));
   const candidates = toAgent ? [] : comparing ? d.faqs.filter((f) => f.question.includes('比較')) : d.faqs;
-  const faq = retriever.matchFAQ(text, candidates)
+  const faq = retriever.matchFAQ(milWording(text), candidates)
     || (followUp && !comparing && !toAgent ? retriever.matchFAQ(searchText, d.faqs) : null);
   if (faq) {
     this.update(id, (x) => {
@@ -246,16 +255,37 @@ P.decide = async function (text, userId, account, api) {
   const started = Date.now();
   const history = conv.messages.slice(0, -1);
 
+  // 同時判斷訊息類型：太模糊就反問、問「你是誰」就自我介紹、要找真人就轉人工（不用等 Agent 查完）
+  const routing = retriever.isSmallTalk(text) ? Promise.resolve('greeting') : ai.route({ question: text, history, client: this.client() });
+  const routed = (kind) => {
+    if (kind === 'vague' || kind === 'aboutBot') {
+      this.accountLog(id, kind === 'vague' ? 'AI 判斷問題太模糊，反問顧客要查什麼' : 'AI 判斷顧客在問機器人能做什麼');
+      return this.guideReply(id, kind);
+    }
+    if (kind === 'humanAgent') return this.startHandoff(id, userId, 'AI 判斷顧客要找專人', text, 'handoff');
+    if (kind === 'complaint') return this.startHandoff(id, userId, 'AI 判斷為客訴，交給你處理', text, 'blocked');
+    // 預約不在這裡開始（誤判會讓顧客卡在預約流程裡），照原本的關鍵字／一般回答判斷
+    return null;
+  };
+
   // Agent 模式：反覆查詢知識庫，查齊後才回覆
+  let kind = null;
   if (agentOn) {
     const q = searchText === text ? text : `${text}（接續上一題：${followUp || ''}）`;
-    const result = await this.runAgent(q, history, d, id);
+    const agentRun = this.runAgent(q, history, d, id);
+    kind = await routing;
+    const early = routed(kind);
+    if (early) { agentRun.catch(() => {}); return early; }
+    const result = await agentRun;
     if (result) {
       const ms = Date.now() - started;
       this.accountLog(id, `Agent 回答：查了 ${result.searches.length} 次、${result.rounds} 輪（${result.searches.slice(0, 4).join('／')}）`);
-      if (!result.answerable) return this.unanswered(id, userId, text);
-      this.update(id, (x) => { const s = today(x); s.ai += 1; s.aiMilliseconds += ms; });
-      return reply(result.reply, 'ai');
+      if (result.answerable) {
+        this.update(id, (x) => { const s = today(x); s.ai += 1; s.aiMilliseconds += ms; });
+        return reply(result.reply, 'ai');
+      }
+      // 打招呼、道謝查不到資料是正常的，交給下面的一般回答；其他的進待補清單
+      if (kind !== 'greeting' && kind !== 'thanks') return this.unanswered(id, userId, text);
     }
   }
 
@@ -264,7 +294,13 @@ P.decide = async function (text, userId, account, api) {
     const semantic = await this.semanticScores(searchText, d);
     const terms = semantic != null || !d.docs.length ? [] : await withTimeout(10, (signal) => ai.searchTerms(searchText, client, signal)).catch(() => []);
     const knowledge = retriever.context(searchText, d, { terms, semantic, budget: 3000, maxPieces: 5 });
-    const answer = await withTimeout(60, (signal) => ai.answer({ question: text, knowledge, history, store: d.store, rules, client, signal }));
+    const answering = withTimeout(60, (signal) => ai.answer({ question: text, knowledge, history, store: d.store, rules, client, signal }));
+    if (kind == null) {
+      kind = await routing;
+      const early = routed(kind);
+      if (early) { answering.catch(() => {}); return early; }
+    }
+    const answer = await answering;
     const ms = Date.now() - started;
     if (answer.intent === 'humanAgent') return this.startHandoff(id, userId, 'AI 判斷顧客要找專人', text, 'handoff');
     if (answer.intent === 'complaint') return this.startHandoff(id, userId, 'AI 判斷為客訴，交給你處理', text, 'blocked');
@@ -285,6 +321,31 @@ P.decide = async function (text, userId, account, api) {
     this.accountLog(id, 'warning', `AI 生成失敗：${e.message}`);
     return this.unanswered(id, userId, text);
   }
+};
+
+// MARK: - 反問／自我介紹（由程式組成，不讓 AI 自由發揮，避免亂編）
+
+P.guideReply = function (id, kind) {
+  const d = this.data[id];
+  const e = (x) => (d.rules.useEmoji === false ? '' : x);
+  const name = d.store.name || '我們';
+  if (isMIL) {
+    const models = (this.milCatalog(id).models || []).filter((m) => m.aliases && m.aliases.length);
+    const shortest = (m) => [...m.aliases].sort((a, b) => [...a].length - [...b].length)[0];
+    const a = models[0] ? shortest(models[0]) : 'P5';
+    const b = models[1] ? shortest(models[1]) : 'B5';
+    const examples = [`・「${a} 通過哪些測試」`, '・「低溫測試怎麼做」', `・「${a} 跟 ${b} 差在哪」`];
+    const quick = ['有哪些型號通過軍規', '軍規測試有哪些項目', '比較型號', `${a} 通過哪些測試`];
+    const text = kind === 'vague'
+      ? [`想查哪一款型號，或哪一項測試呢？${e(' 🙂')}`, '可以這樣問：', ...examples, '也可以點下面的按鈕。'].join('\n')
+      : [`我是「${name}」的 LINE 小幫手${e(' 🙂')}`, '可以幫您查華碩商用筆電的軍規（MIL-STD-810H）測試，例如：', ...examples, '需要專人協助，輸入「我要找真人」就可以。'].join('\n');
+    return reply(text, 'guide', quick);
+  }
+  const quick = d.faqs.filter((f) => f.isEnabled !== false).slice(0, 4).map((f) => f.question);
+  const text = kind === 'vague'
+    ? `想詢問哪方面呢？${e(' 🙂')}\n直接輸入問題就可以，也可以點下面的常見問題。`
+    : `我是「${name}」的 LINE 小幫手${e(' 🙂')}\n可以回答常見問題，直接輸入問題就可以；需要專人協助，輸入「我要找真人」。`;
+  return reply(text, 'guide', quick);
 };
 
 // MARK: - 答不出來 → 待補清單

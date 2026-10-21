@@ -201,10 +201,13 @@ const refersToPrevious = (text) => /第\s*([0-9]+|[一二三四五六七八九�
 const SMALL_TALK = /^(你好|您好|哈囉|嗨|hi|hello|hey|早安|午安|晚安|謝謝|謝啦|感謝|多謝|thanks?|thank you|ok|okay|好|好的|好喔|了解|瞭解|收到|知道了|沒問題|掰掰|再見|bye)(你|您|囉|啦|喔|哦|呀|唷)?[\s!！。.~～?？]*$/i;
 
 const isSmallTalk = (text) => SMALL_TALK.test((text || '').trim());
+/// 問機器人本身：「你是誰」「你能做什麼」「要怎麼問」
+const ABOUT_BOT = /^(請問)?(你|您)(是誰|是什麼|是機器人嗎|是真人嗎|能做什麼|可以做什麼|會什麼|能幫我什麼|可以幫我什麼)|^(這個?)?(要)?(怎麼用|怎麼問|可以問什麼|能問什麼)/;
+const isAboutBot = (text) => ABOUT_BOT.test((text || '').trim()) && count((text || '').trim()) <= 14;
 
 function isFollowUp(text) {
   const t = (text || '').trim();
-  if (isSmallTalk(t)) return false;
+  if (isSmallTalk(t) || isAboutBot(t)) return false;
   const markers = ['這些', '那些', '這個', '那個', '這項', '那項', '它', '其他', '還有', '呢', '哪些型號', '有通過', '哪幾台', '那', '上面', '剛剛'];
   return count(t) <= 6 || markers.some((m) => t.includes(m));
 }
@@ -218,6 +221,6 @@ function containsAny(text, keywords) {
 }
 
 module.exports = {
-  isSmallTalk, normalize, core, bigrams, similarity, matchFAQ, coverage, termScore, chunks, pieces, lexicalScore,
+  isSmallTalk, isAboutBot, normalize, core, bigrams, similarity, matchFAQ, coverage, termScore, chunks, pieces, lexicalScore,
   modelTokens, context, rank, refersToPrevious, isFollowUp, hasKnowledge, containsAny,
 };

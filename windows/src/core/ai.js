@@ -125,6 +125,29 @@ function saysNoInfo(reply) {
   return phrases.some((p) => reply.includes(p));
 }
 
+/// 判斷訊息類型（跟 Agent 查資料同時進行）：太模糊要反問、問機器人是誰、要找真人……
+const ROUTES = ['question', 'vague', 'aboutBot', 'greeting', 'thanks', 'humanAgent', 'complaint', 'reservation', 'other'];
+async function route({ question, history, client, signal }) {
+  const recent = (history || []).slice(-4).filter((m) => ['customer', 'bot', 'owner'].includes(m.role))
+    .map((m) => (m.role === 'customer' ? '顧客：' : '客服：') + prefix(m.text, 120)).join('\n');
+  try {
+    const j = await client.chatJSON({
+      system: `你負責判斷 LINE 客服收到的顧客最新訊息屬於哪一類，只輸出 JSON。
+- question：有具體想問的內容，例如某個型號、某項測試、某種使用情境、價格、保固（就算你不知道答案也算）；要看清單也算，例如「查通過機種」「有哪些型號」「測試項目有哪些」
+- vague：想查資料，但沒說要查哪個型號或哪個項目，從最近對話也看不出主題（例如「我要查」「幫我查一下」「查一下測試結果」「有資料嗎」）
+- aboutBot：問你是誰、你能做什麼、要怎麼問
+- greeting：打招呼；thanks：道謝；humanAgent：要找真人或業務；complaint：抱怨、不滿；reservation：要預約某個時間（訂位、預約到店），退貨、詢問門市地址都不算
+- other：以上都不是`,
+      user: (recent ? `最近對話：\n${recent}\n\n` : '') + `顧客最新訊息：${question}`,
+      schema: { type: 'object', properties: { intent: { type: 'string', enum: ROUTES } }, required: ['intent'] },
+      temperature: 0, maxTokens: 40, timeout: 15, signal,
+    });
+    return ROUTES.includes(j.intent) ? j.intent : 'question';
+  } catch {
+    return 'question';
+  }
+}
+
 /// 從顧客訊息抽出預約欄位
 async function extractSlots(text, today, client) {
   const keys = ['date', 'time', 'people', 'name', 'phone'];
@@ -143,4 +166,4 @@ async function extractSlots(text, today, client) {
   }
 }
 
-module.exports = { instructions, prompt, answer, searchTerms, formatForLINE, saysNoInfo, extractSlots };
+module.exports = { instructions, prompt, answer, route, searchTerms, formatForLINE, saysNoInfo, extractSlots };
