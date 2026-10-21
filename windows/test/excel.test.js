@@ -97,5 +97,6 @@ test('排程表：自己新增同編號的測試項目後，原本未對應的�
 });
 
 test('排程表：範例檔跟產生器一致（Mac 版用同一個檔案比對）', () => {
-  assert.ok(fs.readFileSync(fixture).equals(sampleSchedule()), '請執行 node test/xlsx-writer.js 更新 fixtures/schedule_sample.xlsx');
+  // 比內容不比位元組：各平台的 zlib 壓縮結果可能不同
+  assert.deepStrictEqual(X.readXLSX(fs.readFileSync(fixture)), X.readXLSX(sampleSchedule()), '請執行 node test/xlsx-writer.js 更新 fixtures/schedule_sample.xlsx');
 });
