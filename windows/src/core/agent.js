@@ -29,7 +29,7 @@ const TOOLS = [
 /// 「沙塵、凍融和艦載振動這三項的條件」→ ["沙塵", "凍融", "艦載振動"]
 function splitItems(question) {
   const q = question.replace(/(這|那)?(幾|三|兩|二|四|五|六)?項.*$/, '');
-  const parts = q.split(/[、，,和跟及與/]/).map((p) => p.trim()).filter((p) => [...p].length >= 2);
+  const parts = q.split(/[、，,和跟及與/？?；;]/).map((p) => p.trim()).filter((p) => [...p].length >= 2);
   return parts.length >= 2 ? parts.slice(0, 6) : [];
 }
 

@@ -185,8 +185,36 @@ P.handleMessage = async function (event, userId, account) {
 /// 軍規版：顧客常說「機種／機型」，FAQ 用「型號」；只說「通過機種」就是要型號清單
 const milWording = (text) => {
   if (!isMIL) return text;
-  const t = text.replace(/機種|機型/g, '型號');
+  let t = text.replace(/機種|機型/g, '型號');
+  // 「零下幾度」：「幾度」也是高溫的關鍵字，問冷的時候拿掉，免得配到高溫
+  if (/零下|低溫|寒冷|很冷|結冰|冰點|雪地|冷凍/.test(t)) t = t.replace(/幾度/g, '');
   return /^(請|幫我)?(查|看|列出)?(一下)?(有)?(通過|過)(軍規)?(測試)?的?型號(清單|列表|有哪些)?[?？。!！]*$/.test(t.trim()) ? '有哪些型號通過軍規測試' : t;
+};
+
+/// 「B5 能淋雨嗎？可以摔嗎？」→ ["B5 能淋雨嗎", "B5 可以摔嗎"]（後面沒寫型號就沿用前面的）
+function splitQuestions(text) {
+  const parts = text.replace(/(嗎|呢)[，,、；;]/g, '$1？').split(/[？?；;]/).map((p) => p.trim()).filter((p) => [...p].length >= 2);
+  if (parts.length < 2) return [];
+  let model = '';
+  return parts.map((p) => {
+    const m = retriever.modelTokens(p)[0];
+    if (m) { model = m; return p; }
+    return model ? `${model} ${p}` : p;
+  });
+}
+
+/// 一次問好幾題、每題都有 FAQ → 合成一則回覆（重複的「※ 以官方報告為準」只留最後一個）
+P.multiFAQ = function (d, text) {
+  const qs = splitQuestions(text);
+  if (!qs.length) return null;
+  const hits = qs.map((q) => retriever.matchFAQ(milWording(q), d.faqs));
+  if (hits.some((h) => !h)) return null;
+  const faqs = [...new Set(hits)];
+  if (faqs.length < 2) return null;
+  const answers = faqs.map((f) => f.answer.trim());
+  const note = answers[answers.length - 1].split('\n').pop();
+  const body = answers.map((a, i) => (i < answers.length - 1 && note.startsWith('※') && a.endsWith(note) ? a.slice(0, -note.length).trim() : a));
+  return { faqs, text: body.join('\n\n') };
 };
 
 /// 店家正在跟這位顧客對話（用 #代碼 回覆過、還沒自動交還）
@@ -231,6 +259,15 @@ P.decide = async function (text, userId, account, api) {
   }
   // 同時提到兩個以上型號是比較題：只用「A 和 B 比較」那類 FAQ（店家自己寫的）
   const comparing = retriever.modelTokens(text).length >= 2;
+  // 一次問好幾題、每題 FAQ 都答得出來 → 一起回
+  const multi = comparing ? null : this.multiFAQ(d, text);
+  if (multi) {
+    this.update(id, (x) => {
+      today(x).faq += 1;
+      for (const m of multi.faqs) { const f = x.faqs.find((y) => y.id === m.id); if (f) f.hitCount += 1; }
+    });
+    return reply(multi.text, 'faq');
+  }
   // 一次問好幾項 → FAQ 只能答一項，交給 Agent 逐項查
   const multiItem = !comparing && splitItems(text).length >= 2;
   const toAgent = this.agentOn && (multiItem || retriever.refersToPrevious(text));
@@ -683,9 +720,11 @@ P.preview = async function (text, accountId) {
   const cmp = this.milCompare(accountId, text);
   if (cmp) return compareReply(cmp, rules);
   const comparing = retriever.modelTokens(text).length >= 2;
+  const multi = comparing ? null : this.multiFAQ(d, text);
+  if (multi) return reply(multi.text, 'faq');
   const multiItem = !comparing && splitItems(text).length >= 2;
   const toAgent = this.agentOn && (multiItem || retriever.refersToPrevious(text));
-  const faq = toAgent ? null : retriever.matchFAQ(text, comparing ? d.faqs.filter((f) => f.question.includes('比較')) : d.faqs);
+  const faq = toAgent ? null : retriever.matchFAQ(milWording(text), comparing ? d.faqs.filter((f) => f.question.includes('比較')) : d.faqs);
   if (faq) { const r = reply(faq.answer, 'faq', faq.quickReplies || []); if (faq.flex && rules.useFlex !== false) r.flex = faq.flex; return r; }
   if (!this.aiReady) return reply(rules.fallbackMessage, 'fallback');
   const started = Date.now();
