@@ -14,6 +14,14 @@ struct MILModelsView: View {
     @State private var editingTest: MILTestDef?
     @State private var newTestDraft = false
     @State private var confirmReset = false
+    @State private var importingExcel = false
+    @State private var excel: ExcelImport?
+
+    struct ExcelImport: Identifiable {
+        let id = UUID()
+        var result: MILScheduleImport.Result
+        var file: String
+    }
 
     var body: some View {
         let catalog = app.milCatalog
@@ -86,6 +94,8 @@ struct MILModelsView: View {
                     Button("手動新增") { editing = newModel() }
                     Button("從報告 PDF 檔新增…") { importingPDF = true }
                     Button("從報告網址新增…") { showURLImport = true }
+                    Divider()
+                    Button("從測試排程表 Excel 匯入…") { importingExcel = true }
                 } label: {
                     Label("新增機種", systemImage: "plus")
                 }
@@ -105,6 +115,34 @@ struct MILModelsView: View {
                 .tint(app.milNeedsRegenerate ? .orange : .accentColor)
                 .disabled(generating || c.models.isEmpty)
             }
+        }
+        // 跟 PDF 的檔案選擇分開掛（同一層掛兩個 fileImporter 只有一個會動）
+        .fileImporter(isPresented: $importingExcel, allowedContentTypes: [UTType(filenameExtension: "xlsx") ?? .data], allowsMultipleSelection: false) { r in
+            if case .success(let urls) = r, let url = urls.first { importExcel(url) }
+        }
+        .sheet(item: $excel) { x in
+            MILExcelImportSheet(result: x.result, file: x.file, tests: c.allTests) { items in
+                var counts = (added: 0, updated: 0)
+                app.updateMILCatalog { counts = MILScheduleImport.apply(&$0, items) }
+                if let id = app.selectedAccount?.id { app.accountLog(id, "從測試排程表 Excel 匯入：新增 \(counts.added) 款、更新 \(counts.updated) 款") }
+                result = "已從 Excel 匯入：新增 \(counts.added) 款、更新 \(counts.updated) 款，按「產生知識庫」就會更新客服回答"
+            }
+        }
+    }
+
+    private func importExcel(_ url: URL) {
+        errorText = nil
+        let access = url.startAccessingSecurityScopedResource()
+        defer { if access { url.stopAccessingSecurityScopedResource() } }
+        do {
+            let r = try MILScheduleImport.parse(try Data(contentsOf: url), catalog: app.milCatalog)
+            if r.projects.isEmpty {
+                errorText = "這份 Excel 沒有讀到任何專案：請確認是測試排程表格式（D 欄有「Project」與「Method …」）"
+            } else {
+                excel = ExcelImport(result: r, file: url.lastPathComponent)
+            }
+        } catch {
+            errorText = "讀取 Excel 失敗：\(error.localizedDescription)"
         }
     }
 
@@ -560,5 +598,175 @@ struct MILTestEditor: View {
         let romans = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"]
         let next = romans.first { r in !test.procedures.contains { $0.id == r } } ?? "P\(test.procedures.count + 1)"
         test.procedures.append(MILProcedure(id: next, label: "", detail: ""))
+    }
+}
+
+// MARK: - 測試排程表 Excel 識別結果
+
+/// 勾選要匯入的專案，確認後才存（對照 Windows 版 mil.js 的 ExcelImport）
+struct MILExcelImportSheet: View {
+    @State var items: [MILScheduleImport.Project]
+    let result: MILScheduleImport.Result
+    let file: String
+    let tests: [MILTestDef]
+    let onApply: ([MILScheduleImport.Project]) -> Void
+    @State private var filter = 0
+    @Environment(\.dismiss) private var dismiss
+
+    init(result: MILScheduleImport.Result, file: String, tests: [MILTestDef], onApply: @escaping ([MILScheduleImport.Project]) -> Void) {
+        _items = State(initialValue: result.projects)
+        self.result = result
+        self.file = file
+        self.tests = tests
+        self.onApply = onApply
+    }
+
+    private func needsCare(_ p: MILScheduleImport.Project) -> Bool { !p.warnings.isEmpty || !p.unmapped.isEmpty }
+    private var shown: [Int] {
+        items.indices.filter { i in
+            switch filter {
+            case 1: return items[i].action != .same
+            case 2: return needsCare(items[i])
+            default: return true
+            }
+        }
+    }
+    private var chosen: [MILScheduleImport.Project] { items.filter(\.include) }
+    private var sheetNote: String {
+        result.sheets.map { $0.projects > 0 ? "\($0.name)：\($0.projects) 個專案" : "\($0.name)：\($0.note)" }.joined(separator: "；")
+    }
+
+    private func testsOf(_ p: MILScheduleImport.Project) -> String {
+        let s = tests.filter { p.passed[$0.id] != nil }.map { t -> String in
+            let n = p.passed[t.id]?.count ?? 0
+            return t.short + (t.procedures.count > 1 && n < t.procedures.count ? " \(n)/\(t.procedures.count)" : "")
+        }
+        return s.isEmpty ? "沒有可對應的通過項目" : s.joined(separator: "、")
+    }
+
+    private func stat(_ n: Int, _ label: String, _ color: Color) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 4) {
+            Text("\(n)").font(.title2.bold()).foregroundStyle(color)
+            Text(label).font(.caption).foregroundStyle(.secondary)
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "tablecells").foregroundStyle(.green).font(.title3)
+                Text("測試排程表識別結果").font(.title3.bold())
+                Spacer()
+                Text(file).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+            }
+            Text(sheetNote).font(.caption).foregroundStyle(.secondary)
+            HStack(spacing: 18) {
+                stat(items.count, "個專案", .primary)
+                stat(items.filter { $0.action == .new }.count, "新增", .green)
+                stat(items.filter { $0.action == .update }.count, "更新（通過項目有變）", .orange)
+                stat(items.filter { $0.action == .same }.count, "已是最新", .secondary)
+                let care = items.filter(needsCare).count
+                if care > 0 { stat(care, "需要留意", .red) }
+            }
+            if !result.unmapped.isEmpty {
+                VStack(alignment: .leading, spacing: 3) {
+                    Label("這些測試目前沒有對應的測試項目，不會匯入", systemImage: "exclamationmark.triangle.fill").font(.caption.bold()).foregroundStyle(.orange)
+                    ForEach(result.unmapped, id: \.label) { u in
+                        Text("・\(u.label)（\(u.code)）— \(u.projects) 個專案通過").font(.caption)
+                    }
+                    Text("可以先到「測試項目」新增同一個 Method 編號的項目，再重新上傳一次。").font(.caption2).foregroundStyle(.secondary)
+                }
+                .padding(10).frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
+            }
+            HStack {
+                Picker("", selection: $filter) {
+                    Text("全部").tag(0)
+                    Text("只看有變更").tag(1)
+                    Text("只看需要留意").tag(2)
+                }
+                .pickerStyle(.segmented).labelsHidden().fixedSize()
+                Spacer()
+                Toggle("全選", isOn: Binding(
+                    get: { !shown.isEmpty && shown.allSatisfy { items[$0].include } },
+                    set: { v in for i in shown { items[i].include = v } }
+                ))
+                .toggleStyle(.checkbox)
+                Text("「通過」＝標示 1 的項目數／測試總數").font(.caption).foregroundStyle(.secondary)
+            }
+            HStack(spacing: 10) {
+                Color.clear.frame(width: 16, height: 1)
+                Text("型號（專案）").frame(width: 260, alignment: .leading)
+                Text("工作表").frame(width: 130, alignment: .leading)
+                Text("系列").frame(width: 44)
+                Text("類別").frame(width: 60)
+                Text("通過").frame(width: 80)
+                Text("結果").frame(width: 34)
+                Text("提醒").frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .font(.caption.weight(.semibold)).foregroundStyle(.secondary).padding(.horizontal, 10).padding(.bottom, -6)
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    ForEach(shown, id: \.self) { i in
+                        row($items[i])
+                        Divider()
+                    }
+                }
+            }
+            .frame(minHeight: 320)
+            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(0.25)))
+            Text("匯入只會更新型號的「通過項目」；已經有的型號，名稱、別名、系列等資料不會變。匯入後按「產生知識庫」才會更新客服回答。")
+                .font(.caption).foregroundStyle(.secondary)
+            HStack {
+                Text("已選 \(chosen.count) 款").font(.callout).foregroundStyle(.secondary)
+                Spacer()
+                Button("取消") { dismiss() }.keyboardShortcut(.cancelAction)
+                Button("確認匯入 \(chosen.count) 款") { onApply(chosen); dismiss() }
+                    .buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction).disabled(chosen.isEmpty)
+            }
+        }
+        .padding(20)
+        .frame(width: 900, height: 680)
+    }
+
+    private func row(_ p: Binding<MILScheduleImport.Project>) -> some View {
+        let v = p.wrappedValue
+        let tag: (String, Color) = switch v.action {
+        case .new: ("新增", .green)
+        case .update: ("更新", .orange)
+        case .same: ("相同", .gray)
+        }
+        return HStack(alignment: .top, spacing: 10) {
+            Toggle("", isOn: p.include).toggleStyle(.checkbox).labelsHidden()
+            VStack(alignment: .leading, spacing: 2) {
+                Text(v.code).font(.callout.bold())
+                Text(testsOf(v)).font(.caption).foregroundStyle(.secondary)
+                if let d = v.existingDisplay { Text("目前資料：\(d)").font(.caption2).foregroundStyle(.tertiary) }
+            }
+            .frame(width: 260, alignment: .leading)
+            Text("\(v.sheet) \(v.column)").font(.caption).foregroundStyle(.secondary).frame(width: 130, alignment: .leading)
+            Text(v.series.isEmpty ? "—" : v.series).frame(width: 44)
+            VStack(spacing: 0) {
+                Text(v.status).font(.caption)
+                Text(v.year).font(.caption2).foregroundStyle(.secondary)
+            }
+            .frame(width: 60)
+            HStack(spacing: 3) {
+                Text("\(v.ones)").bold()
+                Text("/ \(v.total.map(String.init) ?? "?")").foregroundStyle(.secondary)
+                Image(systemName: v.total == v.ones ? "checkmark.circle" : "exclamationmark.circle")
+                    .foregroundStyle(v.total == v.ones ? .green : .red).font(.caption)
+            }
+            .frame(width: 80)
+            Tag(text: tag.0, color: tag.1)
+            VStack(alignment: .leading, spacing: 2) {
+                ForEach(v.warnings, id: \.self) { Text($0).font(.caption).foregroundStyle(.orange) }
+                if !v.unmapped.isEmpty { Text("未對應：\(v.unmapped.joined(separator: "、"))").font(.caption).foregroundStyle(.orange) }
+                if v.warnings.isEmpty && v.unmapped.isEmpty { Text("—").foregroundStyle(.tertiary) }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.vertical, 8).padding(.horizontal, 10)
+        .opacity(v.include ? 1 : 0.55)
     }
 }

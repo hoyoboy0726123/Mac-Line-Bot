@@ -53,7 +53,7 @@ enum MILReportParser {
         }
     }
 
-    private static func section(_ raw: String, tests: [MILTestDef]) -> [String: [String]] {
+    static func section(_ raw: String, tests: [MILTestDef]) -> [String: [String]] {
         let text = raw.replacingOccurrences(of: "\u{2010}", with: "-").replacingOccurrences(of: "\u{2013}", with: "-")
             .replacingOccurrences(of: "Procedure1", with: "Procedure 1")
         let ns = text as NSString

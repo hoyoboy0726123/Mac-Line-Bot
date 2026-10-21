@@ -137,6 +137,21 @@ async function takeScreenshots(dir) {
       await shot('milModels-test-new');
       await js(`[...document.querySelectorAll('.modal button')].find((b) => b.textContent.trim() === '取消').click()`);
       await wait(500);
+      // 測試排程表 Excel 匯入的識別結果（--screenshot-xlsx=檔案）
+      const xlsx = flag('screenshot-xlsx');
+      if (xlsx && fs.existsSync(xlsx)) {
+        const b64 = fs.readFileSync(xlsx).toString('base64');
+        await js(`(() => { const bin = atob('${b64}'); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+          const dt = new DataTransfer(); dt.items.add(new File([u], '${path.basename(xlsx)}'));
+          const input = document.querySelector('input[accept^=".xlsx"]'); input.files = dt.files; input.dispatchEvent(new Event('change')); })()`);
+        await wait(1500);
+        await shot('milModels-excel');
+        await js(`[...document.querySelectorAll('.modal .seg button')].find((b) => b.textContent.includes('需要留意')).click()`);
+        await wait(400);
+        await shot('milModels-excel2');
+        await js(`[...document.querySelectorAll('.modal button')].find((b) => b.textContent.trim() === '取消').click()`);
+        await wait(500);
+      }
     }
   }
   win.setMinimumSize(320, 400);
