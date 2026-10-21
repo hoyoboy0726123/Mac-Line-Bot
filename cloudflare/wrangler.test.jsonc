@@ -1,0 +1,17 @@
+{
+  // 本機測試用（沒有 Workers AI，AI 題目會走「答不出來」的流程）
+  "name": "mac-line-bot-mil-test",
+  "account_id": "e88351a4fbf5a31abebeca4066f56d82", // Line-bot-Media
+  "main": "dist/worker.js",
+  "no_bundle": true,
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "dist/public",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*", "/webhook/*", "/health"]
+  },
+  "durable_objects": { "bindings": [{ "name": "MAIN", "class_name": "Main" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Main"] }],
+  "observability": { "enabled": true }
+}

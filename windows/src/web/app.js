@@ -77,8 +77,8 @@
     },
     template: `<div class="login"><div class="card">
       <div><IconBadge name="store" color="green" :size="46"/></div>
-      <div style="font-size:18px;font-weight:700">Mac-Line-Bot 區網管理</div>
-      <div class="small muted">請輸入主機設定的區網密碼</div>
+      <div style="font-size:18px;font-weight:700">Mac-Line-Bot 管理登入</div>
+      <div class="small muted">請輸入管理密碼</div>
       <input type="password" v-model="password" placeholder="密碼" @keydown.enter="login" autofocus>
       <div v-if="error" class="small err">{{ error }}</div>
       <button class="btn primary" :disabled="!password || busy" @click="login"><Icon name="log-in"/>登入</button>

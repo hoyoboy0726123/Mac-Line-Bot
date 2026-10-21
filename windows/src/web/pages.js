@@ -21,10 +21,10 @@
         const s = st();
         const synced = !!(this.acct && this.acct.webhookStatus && this.acct.webhookStatus.synced);
         return [
-          { icon: 'monitor', title: '本機服務', sub: `127.0.0.1:${s.settings.port}`, ok: s.serverRunning },
-          { icon: 'network', title: 'Cloudflare Tunnel', sub: s.tunnel.label, ok: s.tunnel.state === 'running' },
+          s.cloud ? { icon: 'cloud', title: 'Cloudflare Workers', sub: '雲端運作中', ok: true } : { icon: 'monitor', title: '本機服務', sub: `127.0.0.1:${s.settings.port}`, ok: s.serverRunning },
+          s.cloud ? { icon: 'globe', title: '固定網址', sub: s.tunnel.publicURL ? s.tunnel.publicURL.replace('https://', '') : '—', ok: !!s.tunnel.publicURL } : { icon: 'network', title: 'Cloudflare Tunnel', sub: s.tunnel.label, ok: s.tunnel.state === 'running' },
           { icon: 'message-circle', title: 'LINE Webhook', sub: synced ? '已同步' : '未同步', ok: synced },
-          { icon: 'cpu', title: 'Qwen 本機模型', sub: s.ollama.ready ? s.settings.chatModel : s.ollama.label, ok: s.ollama.ready },
+          { icon: 'cpu', title: s.cloud ? 'Workers AI' : 'Qwen 本機模型', sub: s.ollama.ready ? s.settings.chatModel.replace(/^@cf\/[^/]+\//, '') : s.ollama.label, ok: s.ollama.ready },
         ];
       },
       logs() { return st().logs.filter((e) => !this.warningsOnly || e.level !== 'info').slice(0, 14); },
@@ -46,7 +46,8 @@
             <div class="muted">{{ health.detail }}</div>
             <div class="small muted row" style="gap:5px;margin-top:3px"><Icon name="inbox" :size="13"/>上次收到顧客訊息：{{ st.lastEventAt ? shortDisplay(st.lastEventAt) : '尚未收到' }}</div>
           </div>
-          <button v-if="st.tunnel.state === 'stopped'" class="btn primary" @click="start"><Icon name="play"/>啟動</button>
+          <template v-if="st.cloud"></template>
+          <button v-else-if="st.tunnel.state === 'stopped'" class="btn primary" @click="start"><Icon name="play"/>啟動</button>
           <template v-else>
             <button class="btn" @click="start"><Icon name="refresh-cw"/>重啟 Tunnel</button>
             <button class="btn" @click="stop"><Icon name="square"/>停止</button>
@@ -603,7 +604,7 @@
           </div>
         </div>
 
-        <div class="card col">
+        <div class="card col" v-if="!st.cloud">
           <div class="row"><h3 style="margin:0">Cloudflare Tunnel</h3><Tag :text="st.tunnel.label" :color="st.tunnel.state === 'running' ? 'green' : 'orange'"/><span class="spacer"></span>
             <span v-if="st.tunnel.pid" class="small faint">pid {{ st.tunnel.pid }}</span></div>
           <div class="small muted">讓 LINE 可以從外部連進這台電腦，不用開 port、不用固定 IP。</div>
@@ -733,7 +734,13 @@
     },
     template: `<div class="page">
       <PageHead section="system"/>
-      <div class="card col">
+      <div class="card col" v-if="st.cloud">
+        <h3>雲端運作</h3>
+        <div class="small muted">程式跑在 Cloudflare Workers，資料存在 Durable Object，AI 用 Workers AI。不用開著電腦，網址固定不變。</div>
+        <div class="row wrap"><Icon name="globe"/><span class="mono grow">{{ st.tunnel.publicURL || '—' }}</span></div>
+        <div v-if="st.aiUsage" class="small muted">這次啟動以來 AI 呼叫 {{ st.aiUsage.calls }} 次（輸入 {{ st.aiUsage.inputTokens }}、輸出 {{ st.aiUsage.outputTokens }} tokens）。每天的免費額度與用量請看 Cloudflare 後台的 Workers AI。</div>
+      </div>
+      <div class="card col" v-if="!st.cloud">
         <h3>本機服務</h3>
         <div class="row wrap"><Dot :color="st.serverRunning ? 'green' : 'red'"/>
           <span class="grow">{{ st.serverRunning ? 'Webhook 服務 127.0.0.1:' + s.port + ' 執行中' : (st.serverError || '未啟動') }}</span></div>
@@ -745,7 +752,7 @@
         <div class="small muted">長期跑的話，建議到 Windows「設定 → 系統 → 電源」把睡眠設成「永不」，App 執行時也會防止系統自動睡眠。關掉視窗後 App 會縮到右下角通知區域繼續運作。</div>
       </div>
 
-      <div class="card col">
+      <div class="card col" v-if="!st.cloud">
         <div class="row"><h3 style="margin:0">區網網頁管理</h3><Tag :text="s.lanAccess && st.adminHost === '0.0.0.0' ? '區網可連入' : '只限本機'" :color="s.lanAccess && st.adminHost === '0.0.0.0' ? 'green' : 'gray'"/></div>
         <div class="small muted">開啟後，同一個區網（公司或店裡 Wi-Fi）的電腦和手機，用瀏覽器打開下面的網址、輸入密碼，就能管理知識庫、回覆顧客、處理預約。顧客的 LINE 不會經過這裡。</div>
         <template v-if="st.local">
@@ -762,16 +769,17 @@
       </div>
 
       <div class="card col">
-        <div class="row"><h3 style="margin:0">本機大模型（Ollama）</h3><Tag :text="s.useOllama ? o.label : '已關閉'" :color="o.ready ? 'green' : 'orange'"/><span class="spacer"></span>
+        <div class="row"><h3 style="margin:0">{{ st.cloud ? 'AI 模型（Workers AI）' : '本機大模型（Ollama）' }}</h3><Tag :text="s.useOllama ? o.label : '已關閉'" :color="o.ready ? 'green' : 'orange'"/><span class="spacer"></span>
           <button class="btn" @click="refreshOllama">重新檢查</button></div>
         <Toggle :modelValue="s.useOllama" @update:modelValue="set({ useOllama: $event })" label="使用 Qwen 回答、bge-m3 語意檢索"/>
-        <div class="small muted">回答與檢索都在這台電腦上執行，不用 API key。Ollama 沒開時只會用常見問題（FAQ）回答，其他問題加入待補清單。</div>
+        <div v-if="st.cloud" class="small muted">回答與檢索用 Cloudflare Workers AI。每天有免費額度；用完或暫時忙碌時只會用常見問題（FAQ）回答，其他問題加入待補清單。</div>
+        <div v-else class="small muted">回答與檢索都在這台電腦上執行，不用 API key。Ollama 沒開時只會用常見問題（FAQ）回答，其他問題加入待補清單。</div>
         <div class="form-grid">
           <span class="lbl">回答模型</span><input type="text" v-model="models.chatModel" placeholder="qwen3.5:9b">
           <span class="lbl">向量模型</span><input type="text" v-model="models.embedModel" placeholder="bge-m3">
-          <span class="lbl">Ollama 網址</span><input type="text" v-model="models.ollamaURL" placeholder="http://127.0.0.1:11434">
+          <template v-if="!st.cloud"><span class="lbl">Ollama 網址</span><input type="text" v-model="models.ollamaURL" placeholder="http://127.0.0.1:11434"></template>
         </div>
-        <div class="row"><span class="small muted grow">顯示卡記憶體 8 GB 以上建議用 qwen3.5:9b；沒有獨立顯示卡可以改用較輕量的 qwen3.5:4b。</span><button class="btn" @click="saveModels">儲存模型設定</button></div>
+        <div class="row"><span v-if="st.cloud" class="small muted grow">模型名稱用 Workers AI 的代號，例如 @cf/qwen/qwen3-30b-a3b-fp8。</span><span v-else class="small muted grow">顯示卡記憶體 8 GB 以上建議用 qwen3.5:9b；沒有獨立顯示卡可以改用較輕量的 qwen3.5:4b。</span><button class="btn" @click="saveModels">儲存模型設定</button></div>
         <Toggle :modelValue="s.agentMode" @update:modelValue="set({ agentMode: $event })" label="Agent 模式：反覆查詢知識庫，查齊資料後才回覆"/>
         <div class="small muted">開啟後回覆約 10～30 秒，會自動拆解多項問題逐一查詢，並檢查數字都有出處；關閉則只查一次。常見問題（FAQ）一樣秒回。</div>
         <div v-if="o.state === 'notRunning'" class="small warn">請先安裝並打開 Ollama：<a href="https://ollama.com/download/windows" target="_blank">ollama.com/download</a></div>
@@ -788,7 +796,7 @@
       <div class="card col">
         <h3>資料</h3>
         <div class="mono small" style="user-select:text;word-break:break-all">{{ st.dataDir }}</div>
-        <div class="row wrap" v-if="st.local"><button class="btn" @click="open('data')"><Icon name="folder-open"/>打開資料夾</button>
+        <div class="row wrap" v-if="st.local && !st.cloud"><button class="btn" @click="open('data')"><Icon name="folder-open"/>打開資料夾</button>
           <button class="btn" @click="open('log')"><Icon name="file-text"/>打開日誌檔</button><span class="spacer"></span>
           <button class="btn" @click="wizard">重新執行設定精靈</button></div>
       </div>

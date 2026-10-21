@@ -97,20 +97,24 @@
 
         <template v-if="step === 0">
           <div style="font-size:21px;font-weight:700">讓電腦幫你顧好 LINE 客服 👋</div>
-          <div class="muted">{{ st.productName }} 用這台電腦上的本機大模型（Ollama 的 Qwen 回答、bge-m3 搜尋知識庫）回覆 LINE 官方帳號的訊息。不用 API key、沒有 token 費用，顧客的對話和你的資料都留在自己的電腦上。</div>
+          <div v-if="st.cloud" class="muted">{{ st.productName }} 在 Cloudflare 雲端運作，用 Workers AI（Qwen 回答、bge-m3 搜尋知識庫）回覆 LINE 官方帳號的訊息。不用開著電腦，網址固定，管理介面用密碼登入，任何地方都能管理。</div>
+          <div v-else class="muted">{{ st.productName }} 用這台電腦上的本機大模型（Ollama 的 Qwen 回答、bge-m3 搜尋知識庫）回覆 LINE 官方帳號的訊息。不用 API key、沒有 token 費用，顧客的對話和你的資料都留在自己的電腦上。</div>
           <div class="card col">
-            <CheckRow :ok="isWin" :text="isWin ? 'Windows 10 / 11' : '目前不是 Windows（開發測試模式）'"/>
-            <CheckRow :ok="o.state === 'ready' || o.state === 'missing'" :text="'Ollama：' + o.label">
+            <CheckRow v-if="st.cloud" :ok="true" text="Cloudflare 雲端運作（不用開著電腦）"/>
+            <CheckRow v-else :ok="isWin" :text="isWin ? 'Windows 10 / 11' : '目前不是 Windows（開發測試模式）'"/>
+            <CheckRow v-if="!st.cloud" :ok="o.state === 'ready' || o.state === 'missing'" :text="'Ollama：' + o.label">
               <a v-if="o.state === 'notRunning'" href="https://ollama.com/download/windows" target="_blank" class="small">下載 Ollama</a>
               <button class="btn sm" @click="refreshOllama">重新檢查</button></CheckRow>
             <CheckRow :ok="o.ready" :text="'模型：' + st.settings.chatModel + ' + ' + st.settings.embedModel">
               <button v-if="o.state === 'missing'" class="btn sm primary" :disabled="!!o.pulling" @click="pull">下載模型</button></CheckRow>
             <div v-if="o.pulling" class="col" style="gap:3px"><div class="tiny muted">下載 {{ o.pulling.model }}：{{ o.pulling.status }} {{ o.pulling.ratio ? Math.round(o.pulling.ratio * 100) + '%' : '' }}</div>
               <div class="progress"><div :style="{ width: Math.round((o.pulling.ratio || 0) * 100) + '%' }"></div></div></div>
-            <CheckRow :ok="st.serverRunning" :text="'本機服務 127.0.0.1:' + st.settings.port"/>
+            <CheckRow v-if="!st.cloud" :ok="st.serverRunning" :text="'本機服務 127.0.0.1:' + st.settings.port"/>
           </div>
+          <template v-if="!st.cloud">
           <div v-if="!o.ready" class="small warn">本機模型還沒準備好也可以先繼續，期間只會用常見問題回答。第一次下載模型約 7 GB，需要一點時間。</div>
           <div class="small muted">建議：記憶體 16 GB 以上；有 8 GB 以上顯示卡（NVIDIA / AMD）回答會快很多。沒有顯示卡可以到「系統」改用 qwen3.5:4b。長期跑的話放在一台不關機的電腦最好 💡</div>
+          </template>
         </template>
 
         <template v-if="step === 1">
@@ -165,17 +169,18 @@
           <div style="font-size:21px;font-weight:700">建立連線</div>
           <div class="small muted">{{ st.productName }} 會用 Cloudflare Tunnel 產生一個公開網址，並自動設定到 LINE 的 webhook，不用開 port、不用固定 IP。</div>
           <div class="card col">
-            <CheckRow :ok="!!st.tunnel.binary" text="cloudflared"><span class="spacer"></span>
+            <CheckRow v-if="!st.cloud" :ok="!!st.tunnel.binary" text="cloudflared"><span class="spacer"></span>
               <button v-if="!st.tunnel.binary" class="btn sm" :disabled="st.installing" @click="install">{{ st.installing ? '下載中…' : '一鍵安裝' }}</button></CheckRow>
-            <CheckRow :ok="st.tunnel.state === 'running'" :text="'Tunnel：' + st.tunnel.label"/>
+            <CheckRow v-if="!st.cloud" :ok="st.tunnel.state === 'running'" :text="'Tunnel：' + st.tunnel.label"/>
             <CheckRow :ok="!!st.tunnel.publicURL" :text="'公開網址：' + (st.tunnel.publicURL || '等待中')"/>
             <CheckRow :ok="!!(status && status.synced)" :text="'LINE Webhook：' + (status && status.synced ? '已同步並測試通過' : (status && status.message) || '等待中')"/>
           </div>
-          <div class="row"><button class="btn" :disabled="!st.tunnel.binary" @click="startTunnel">{{ st.tunnel.state === 'stopped' ? '開始連線' : '重新連線' }}</button>
+          <div class="row"><button v-if="!st.cloud" class="btn" :disabled="!st.tunnel.binary" @click="startTunnel">{{ st.tunnel.state === 'stopped' ? '開始連線' : '重新連線' }}</button>
             <button v-if="st.tunnel.publicURL" class="btn" @click="sync">重新設定 Webhook</button>
             <span v-if="st.tunnel.state === 'starting'" class="small muted">連線中…</span></div>
           <div v-if="st.tunnel.error" class="small err">{{ st.tunnel.error }}</div>
-          <div class="small muted">Quick Tunnel 每次重啟網址會變，{{ st.productName }} 會自動幫你更新 LINE 後台。想要固定網址，之後可以在「LINE 連線」改用自訂網域。</div>
+          <div v-if="st.cloud" class="small muted">雲端版的網址是固定的，設定一次就好。</div>
+          <div v-else class="small muted">Quick Tunnel 每次重啟網址會變，{{ st.productName }} 會自動幫你更新 LINE 後台。想要固定網址，之後可以在「LINE 連線」改用自訂網域。</div>
         </template>
 
         <template v-if="step === 6">

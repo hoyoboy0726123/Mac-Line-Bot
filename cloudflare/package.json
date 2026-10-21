@@ -1,0 +1,18 @@
+{
+  "name": "mac-line-bot-cloudflare",
+  "private": true,
+  "description": "Mac-Line-Bot MIL 雲端版：Cloudflare Workers + Durable Objects + Workers AI",
+  "scripts": {
+    "build": "node build.mjs",
+    "dev": "node build.mjs && wrangler dev",
+    "deploy": "node build.mjs && wrangler deploy",
+    "test": "node build.mjs && node --test test/*.test.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.10",
+    "wrangler": "4.151.3",
+    "vue": "3.5.43",
+    "lucide-static": "1.56.0"
+  },
+  "type": "module"
+}
