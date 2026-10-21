@@ -129,7 +129,7 @@
 
         <template v-if="step === 2">
           <div style="font-size:21px;font-weight:700">填入 Messaging API 金鑰</div>
-          <div class="small muted">金鑰只存在這台電腦（Windows 會用系統加密保護）。</div>
+          <div class="small muted">{{ st.cloud ? '金鑰存在你的 Cloudflare 帳號裡，只有登入管理介面的人能修改。' : '金鑰只存在這台電腦（Windows 會用系統加密保護）。' }}</div>
           <label class="field"><span>Channel secret</span><input type="password" v-model="secret" :placeholder="account && account.hasCredentials ? '已設定（要更換才需要重新輸入）' : ''"></label>
           <label class="field"><span>Channel access token</span><input type="password" v-model="token" :placeholder="account && account.hasCredentials ? '已設定（要更換才需要重新輸入）' : ''"></label>
           <div v-if="verifying" class="small muted">驗證中…</div>

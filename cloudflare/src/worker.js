@@ -90,6 +90,9 @@ export class Main extends DurableObject {
       this.ctx.waitUntil(p.catch(() => {}));
       return p;
     };
+    // Durable Object 閒置後會重新啟動，每次都記「Ollama 已連線」會洗版
+    const log = app.log.bind(app);
+    app.log = (level, msg, ...rest) => (String(msg).startsWith('Ollama 已連線') ? undefined : log(level, msg, ...rest));
     if (!app.logs.length) app.log('info', '雲端版啟動（Cloudflare Workers + Workers AI）');
     app.started = true;
     await app.refreshOllama(false);
