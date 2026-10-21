@@ -177,4 +177,4 @@ async function load(source, tests) {
   return parsePDF(data, tests);
 }
 
-module.exports = { parse, guessCode, pageText, pdfPages, parsePDF, load };
+module.exports = { parse, section, guessCode, pageText, pdfPages, parsePDF, load };

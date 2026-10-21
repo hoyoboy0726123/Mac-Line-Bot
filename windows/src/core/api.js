@@ -424,6 +424,24 @@ async function handleAPI(app, method, path, q, body, ctx) {
       return ok();
     }
     case '/api/mil/generate': return ok(await app.generateMILKnowledge(id));
+    // 測試排程表 Excel：先解析給管理者看總覽，確認後才匯入
+    case '/api/mil/excel/parse': {
+      if (!isMIL) return fail('這個版本沒有軍規機種');
+      try {
+        return ok(require('./mil/excel').parseSchedule(Buffer.from(body.base64 || '', 'base64'), app.milCatalog(id)));
+      } catch (e) {
+        return fail(e.message || '讀取 Excel 失敗');
+      }
+    }
+    case '/api/mil/excel/apply': {
+      if (!isMIL) return fail('這個版本沒有軍規機種');
+      const items = Array.isArray(body.items) ? body.items : [];
+      if (!items.length) return fail('沒有選擇要匯入的專案');
+      let r;
+      app.updateMILCatalog(id, (c) => { r = require('./mil/excel').applySchedule(c, items); });
+      app.accountLog(id, `從測試排程表 Excel 匯入：新增 ${r.added} 款、更新 ${r.updated} 款`);
+      return ok(r);
+    }
     case '/api/mil/parse': {
       try {
         const parser = mil().parser;

@@ -147,9 +147,92 @@
     </div>`,
   };
 
+
+  /// 測試排程表 Excel 的識別結果總覽：勾選要匯入的專案，確認後才存
+  const ExcelImport = {
+    props: { result: Object, tests: Array, file: String },
+    emits: ['close', 'done'],
+    data() { return { items: this.result.projects.map((p) => ({ ...p })), filter: 'all', saving: false }; },
+    computed: {
+      chosen() { return this.items.filter((p) => p.include); },
+      shown() {
+        if (this.filter === 'warn') return this.items.filter((p) => p.warnings.length || p.unmapped.length);
+        if (this.filter === 'change') return this.items.filter((p) => p.action !== 'same');
+        return this.items;
+      },
+      counts() {
+        const n = (a) => this.items.filter((p) => p.action === a).length;
+        return { new: n('new'), update: n('update'), same: n('same'), warn: this.items.filter((p) => p.warnings.length || p.unmapped.length).length };
+      },
+      allOn() { return this.shown.length > 0 && this.shown.every((p) => p.include); },
+      sheetNote() { return this.result.sheets.map((s) => s.projects ? `${s.name}：${s.projects} 個專案` : `${s.name}：${s.note}`).join('；'); },
+    },
+    methods: {
+      toggleAll() { const v = !this.allOn; for (const p of this.shown) p.include = v; },
+      testsOf(p) { return this.tests.filter((t) => p.passed[t.id]).map((t) => t.short + (t.procedures.length > 1 && p.passed[t.id].length < t.procedures.length ? ` ${p.passed[t.id].length}/${t.procedures.length}` : '')).join('、') || '沒有可對應的通過項目'; },
+      actionTag(p) { return { new: ['新增', 'green'], update: ['更新', 'orange'], same: ['相同', 'gray'] }[p.action]; },
+      async apply() {
+        this.saving = true;
+        try {
+          const r = await post('/api/mil/excel/apply', { items: this.chosen.map((p) => ({ code: p.code, series: p.series, passed: p.passed })) }, { quiet: true });
+          this.$emit('done', r);
+        } catch (e) { toast('匯入失敗：' + e.message, true); }
+        this.saving = false;
+      },
+    },
+    template: `<Modal size="xl" @close="$emit('close')">
+      <div class="row" style="margin-top:8px"><Icon name="file-spreadsheet" :size="20" style="color:var(--green)"/><b style="font-size:17px" class="grow">測試排程表識別結果</b><span class="small muted ellipsis" style="max-width:300px">{{ file }}</span></div>
+      <div class="small muted">{{ sheetNote }}</div>
+      <div class="row wrap" style="gap:18px">
+        <div><span class="bold" style="font-size:20px">{{ items.length }}</span> <span class="small muted">個專案</span></div>
+        <div><span class="bold" style="font-size:20px;color:var(--green)">{{ counts.new }}</span> <span class="small muted">新增</span></div>
+        <div><span class="bold" style="font-size:20px;color:var(--orange)">{{ counts.update }}</span> <span class="small muted">更新（通過項目有變）</span></div>
+        <div><span class="bold" style="font-size:20px" class="muted">{{ counts.same }}</span> <span class="small muted">已是最新</span></div>
+        <div v-if="counts.warn"><span class="bold" style="font-size:20px;color:var(--red)">{{ counts.warn }}</span> <span class="small muted">需要留意</span></div>
+      </div>
+      <div v-if="result.unmapped.length" class="card tight col" style="background:color-mix(in srgb, var(--orange) 10%, transparent);gap:4px">
+        <b class="small warn row" style="gap:5px"><Icon name="triangle-alert" :size="14"/>這些測試目前沒有對應的測試項目，不會匯入</b>
+        <div v-for="u in result.unmapped" :key="u.label" class="small">・{{ u.label }}（{{ u.code }}）— {{ u.projects }} 個專案通過</div>
+        <div class="tiny muted">可以先到「測試項目」新增同一個 Method 編號的項目，再重新上傳一次。</div>
+      </div>
+      <div class="row"><Seg v-model="filter" :options="[{ value: 'all', label: '全部' }, { value: 'change', label: '只看有變更' }, { value: 'warn', label: '只看需要留意' }]"/>
+        <span class="spacer"></span><span class="small muted">「通過」＝標示 1 的項目數 ／ 測試總數</span></div>
+      <div style="max-height:46vh;overflow:auto;border:1px solid var(--line);border-radius:10px">
+        <table class="matrix" style="font-size:12.5px">
+          <thead><tr><th style="width:34px"><input type="checkbox" :checked="allOn" @change="toggleAll"></th>
+            <th class="model">型號（專案）</th><th>工作表</th><th>系列</th><th>類別</th><th>通過</th><th>結果</th><th style="text-align:left">提醒</th></tr></thead>
+          <tbody>
+            <tr v-for="p in shown" :key="p.sheet + p.column" :style="p.include ? '' : 'opacity:.55'">
+              <td><input type="checkbox" v-model="p.include"></td>
+              <td class="model" style="min-width:240px;white-space:normal"><div class="bold">{{ p.code }}</div>
+                <div class="tiny muted" style="max-width:300px">{{ testsOf(p) }}</div>
+                <div v-if="p.existingDisplay" class="tiny faint">目前資料：{{ p.existingDisplay }}</div></td>
+              <td class="small muted">{{ p.sheet }} {{ p.column }}</td>
+              <td>{{ p.series || '—' }}</td>
+              <td class="small">{{ p.status }}<div class="tiny muted">{{ p.year }}</div></td>
+              <td><span class="bold">{{ p.ones }}</span><span class="muted"> / {{ p.total == null ? '?' : p.total }}</span>
+                <Icon v-if="p.total === p.ones" name="circle-check" :size="13" style="color:var(--green);margin-left:3px"/>
+                <Icon v-else name="circle-alert" :size="13" style="color:var(--red);margin-left:3px"/></td>
+              <td><Tag :text="actionTag(p)[0]" :color="actionTag(p)[1]"/></td>
+              <td class="small" style="text-align:left;white-space:normal;min-width:200px">
+                <div v-for="w in p.warnings" :key="w" class="warn">{{ w }}</div>
+                <div v-if="p.unmapped.length" class="warn">未對應：{{ p.unmapped.join('、') }}</div>
+                <span v-if="!p.warnings.length && !p.unmapped.length" class="faint">—</span></td>
+            </tr>
+          </tbody>
+        </table>
+        <Empty v-if="!shown.length" icon="sheet" title="沒有符合的專案" message=""/>
+      </div>
+      <div class="tiny muted">匯入只會更新型號的「通過項目」；已經有的型號，名稱、別名、系列等資料不會變。匯入後按「產生知識庫」才會更新客服回答。</div>
+      <template #foot><span class="small muted grow">已選 {{ chosen.length }} 款</span>
+        <button class="btn" @click="$emit('close')">取消</button>
+        <button class="btn primary" :disabled="!chosen.length || saving" @click="apply"><Icon name="check"/>{{ saving ? '匯入中…' : '確認匯入 ' + chosen.length + ' 款' }}</button></template>
+    </Modal>`,
+  };
+
   P.milModels = {
-    components: { Editor, FamilyRow, TestEditor },
-    data: () => ({ editingTest: null, testIsNew: false, editing: null, isNew: false, generating: false, result: '', error: '', menu: false, urlDialog: false, url: '', importing: false }),
+    components: { Editor, FamilyRow, TestEditor, ExcelImport },
+    data: () => ({ editingTest: null, testIsNew: false, editing: null, isNew: false, generating: false, result: '', error: '', menu: false, urlDialog: false, url: '', importing: false, excel: null, excelFile: '' }),
     computed: {
       mil() { return S.data && S.data.mil; },
       c() { return this.mil ? this.mil.catalog : { models: [], families: [] }; },
@@ -167,6 +250,30 @@
       edit(m) { this.isNew = false; this.editing = m; },
       manual() { this.menu = false; this.isNew = true; this.editing = { code: '', display: '', aliases: [], family: '', passed: {}, describedOnly: {}, reportURL: '', standard: 'MIL-STD-810H' }; },
       pickPDF() { this.menu = false; this.$refs.pdf.click(); },
+      pickExcel() { this.menu = false; this.$refs.xlsx.click(); },
+      async fromExcel(e) {
+        const file = e.target.files[0];
+        e.target.value = '';
+        if (!file) return;
+        this.error = '';
+        this.importing = true;
+        try {
+          const buf = new Uint8Array(await file.arrayBuffer());
+          let bin = '';
+          for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000));
+          const r = await post('/api/mil/excel/parse', { base64: btoa(bin) }, { quiet: true });
+          if (!r.projects.length) this.error = '這份 Excel 沒有讀到任何專案：請確認是測試排程表格式（D 欄有「Project」與「Method …」）';
+          else { this.excelFile = file.name; this.excel = r; }
+        } catch (err) {
+          this.error = '讀取 Excel 失敗：' + err.message;
+        }
+        this.importing = false;
+      },
+      excelDone(r) {
+        this.excel = null;
+        this.result = `已從 Excel 匯入：新增 ${r.added} 款、更新 ${r.updated} 款，按「產生知識庫」就會更新客服回答`;
+        toast('已匯入 🎉');
+      },
       async fromFile(e) {
         const file = e.target.files[0];
         e.target.value = '';
@@ -222,6 +329,7 @@
     template: `<div class="page wide" style="max-width:1240px">
       <PageHead section="milModels" subtitle="華碩商用筆電 MIL-STD-810H 機種與測試項目，改完按「產生」就會更新 FAQ 與背景知識"/>
       <input type="file" ref="pdf" accept="application/pdf,.pdf" style="display:none" @change="fromFile">
+      <input type="file" ref="xlsx" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="display:none" @change="fromExcel">
       <div class="card tight row wrap" v-if="mil">
         <div class="grow col" style="gap:3px">
           <b>共 {{ c.models.length }} 款機種</b>
@@ -230,11 +338,12 @@
           <div v-if="result" class="small muted">{{ result }}</div>
         </div>
         <div style="position:relative">
-          <button class="btn" :disabled="importing" @click="menu = !menu"><Icon name="plus"/>{{ importing ? '讀取報告中…' : '新增機種' }}</button>
+          <button class="btn" :disabled="importing" @click="menu = !menu"><Icon name="plus"/>{{ importing ? '讀取中…' : '新增機種' }}</button>
           <div class="menu" v-if="menu" style="right:0;top:36px" @mouseleave="menu = false">
             <button @click="manual"><Icon name="pencil"/>手動新增</button>
             <button @click="pickPDF"><Icon name="file-up"/>從報告 PDF 檔新增…</button>
             <button @click="menu = false; urlDialog = true"><Icon name="link-2"/>從報告網址新增…</button>
+            <button @click="pickExcel"><Icon name="file-spreadsheet"/>從測試排程表 Excel 匯入…</button>
           </div>
         </div>
         <button class="btn" :class="mil.needsRegenerate ? '' : 'primary'" :style="mil.needsRegenerate ? 'background:var(--orange);color:#fff;border-color:transparent' : ''"
@@ -296,6 +405,7 @@
 
       <TestEditor v-if="editingTest" :test="editingTest" :isNew="testIsNew" :used="usedBy(editingTest)" @close="editingTest = null"/>
       <Editor v-if="editing" :model="editing" :tests="tests" :families="c.families.map((f) => f.name)" :isNew="isNew" @close="editing = null"/>
+      <ExcelImport v-if="excel" :result="excel" :tests="tests" :file="excelFile" @close="excel = null" @done="excelDone"/>
       <Modal v-if="urlDialog" title="從報告網址新增" @close="urlDialog = false">
         <div class="small muted">貼上華碩官方 MIL-STD-810H 測試報告 PDF 的網址，例如 https://www.asus.com/event/militarygradereport/….pdf</div>
         <input type="url" v-model="url" placeholder="https://" @keydown.enter="fromURL">
