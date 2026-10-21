@@ -6,8 +6,8 @@ const { makeFAQ, makeDoc } = require('../models');
 const C = require('./catalog');
 const F = require('./flex');
 
-/// 產生的格式改變時加 1，App 啟動時會自動重新產生（2 = 卡片 + 兩步選比較）
-const VERSION = 2;
+/// 產生的格式改變時加 1，App 啟動時會自動重新產生（2 = 卡片 + 兩步選比較；3 = 比較改成即時產生）
+const VERSION = 3;
 const TAG = '#MIL自動產生';
 const DOC_TITLE = '華碩商用筆電 MIL-STD-810H 軍規測試（自動產生）';
 const NOTE = '※ 以華碩官方測試報告為準';
@@ -26,12 +26,6 @@ function lines(m, t) {
 const passedModels = (c, t) => c.models.filter((m) => C.passes(m, t).length);
 
 /// 型號沒有自己的叫法時，用系列的叫法
-function entityAliases(c, m) {
-  if (m.aliases.length) return m.aliases;
-  const f = C.familyOf(c, m);
-  return f ? f.aliases : [m.code];
-}
-
 function combos(a, b) {
   const seen = new Set(), out = [];
   for (const x of a) for (const y of b) { const k = `${x}+${y}`; if (!seen.has(k)) { seen.add(k); out.push(k); } }
@@ -180,24 +174,7 @@ function faqs(c) {
     if (m.aliases.length) out.push(withFlex(faq(`${m.code} 通過哪些測試`, modelSummary(c, m), combos(m.aliases, summaryWords)), F.model(c, m)));
   }
   for (const f of C.multiFamilies(c)) out.push(faq(`${f.name} 通過哪些測試`, familySummary(c, f), combos(f.aliases, summaryWords)));
-  // 5) 兩兩比較
-  for (let i = 0; i < c.models.length; i++) {
-    for (let j = i + 1; j < c.models.length; j++) {
-      const a = c.models[i], b = c.models[j];
-      out.push(withFlex(faq(`${a.code} 和 ${b.code} 比較`, compare(c, a, b), combos(entityAliases(c, a), entityAliases(c, b))), F.compare(c, a, b)));
-    }
-  }
-  // 圖文選單「比較型號」：兩步選，先選第一台、再選要比的另一台
-  if (c.models.length >= 2) {
-    const f = faq('比較型號', '想比較哪兩台呢？先選第一台 👇\n也可以直接輸入例如「P5 跟 B5 差在哪」🙂', ['比較型號', '型號比較', '比較機種', '機種比較', '比一比']);
-    f.quickReplies = F.compareStart(c);
-    out.push(f);
-    for (const m of c.models.slice(0, 13)) {
-      const step = faq(`比較 ${F.pairLabel(c, m)}`, `要拿 ${m.display} 跟哪一台比較呢？👇`, []);
-      step.quickReplies = F.compareWith(c, m);
-      out.push(step);
-    }
-  }
+  // 5) 兩台比較不預先產生：顧客問的時候由 compare.js 即時算（型號多的時候不會爆量）
   // 6) 一次列出全部條件
   out.push(faq('所有測試項目的詳細條件', allConditions(c), [
     '列出+項目+條件', '列出+項目+詳細', '所有+條件', '全部+條件', '每一項+條件', '每個項目+條件', '各項目+條件', '各項+條件',
@@ -304,4 +281,4 @@ function doc(c) {
 
 const generate = (c) => ({ faqs: faqs(c), doc: doc(c) });
 
-module.exports = { VERSION, TAG, DOC_TITLE, NOTE, generate, faqs, doc };
+module.exports = { VERSION, TAG, DOC_TITLE, NOTE, generate, faqs, doc, compare };

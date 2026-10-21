@@ -210,7 +210,17 @@ P.decide = async function (text, userId, account, api) {
   const followUp = retriever.isFollowUp(text) ? previous : null;
   const searchText = followUp ? `${followUp} ${text}` : text;
 
-  // 同時提到兩個以上型號是比較題：只用「A 和 B 比較」那類 FAQ
+  // 型號比較：「比較型號」兩步選、「P5 跟 B5 差在哪」→ 即時產生比較表
+  const cmp = this.milCompare(id, text);
+  if (cmp) {
+    this.update(id, (x) => {
+      today(x).faq += 1;
+      const f = cmp.faq && x.faqs.find((y) => y.id === cmp.faq.id);
+      if (f) f.hitCount += 1;
+    });
+    return compareReply(cmp, rules);
+  }
+  // 同時提到兩個以上型號是比較題：只用「A 和 B 比較」那類 FAQ（店家自己寫的）
   const comparing = retriever.modelTokens(text).length >= 2;
   // 一次問好幾項 → FAQ 只能答一項，交給 Agent 逐項查
   const multiItem = !comparing && splitItems(text).length >= 2;
@@ -298,6 +308,23 @@ P.unanswered = function (id, userId, question) {
     this.notifyOwners(id, [LineMessage.text(`❓ ${name} 問了知識庫沒有的問題：\n「${prefix(question, 200)}」\n\n已加入待補清單。要直接回覆請傳：\n#${conv.handoffCode || ''} 你的回覆`)], userId);
   }
   return reply(rules.fallbackMessage, 'fallback');
+};
+
+/// 型號比較（MIL 版）：問的時候才算。店家自己寫過同一題（或手動改過）就用店家的版本
+P.milCompare = function (id, text) {
+  if (!isMIL) return null;
+  const r = require('./mil/compare').handle(this.milCatalog(id), text);
+  if (!r) return null;
+  const { TAG, EDITED } = require('./mil/index');
+  const own = (this.data[id].faqs || []).find((f) => f.question === r.question && (!f.keywords.includes(TAG) || f.keywords.includes(EDITED)));
+  return own ? { ...r, answer: own.answer, flex: own.flex || null, quickReplies: own.quickReplies || [], faq: own } : r;
+};
+
+/// 比較的回覆（卡片照「回覆規則」的設定決定要不要附）
+const compareReply = (r, rules) => {
+  const out = reply(r.answer, 'faq', r.quickReplies || []);
+  if (r.flex && rules.useFlex !== false) out.flex = r.flex;
+  return out;
 };
 
 // MARK: - 轉人工
@@ -591,6 +618,8 @@ P.preview = async function (text, accountId) {
   hit = retriever.containsAny(text, rules.blockedKeywords);
   if (hit) return reply(`${rules.handoffMessage}\n\n（敏感問題「${hit}」）`, 'blocked');
   if (rules.reservationEnabled && retriever.containsAny(text, rules.reservationKeywords)) return reply('（會開始預約收單流程）', 'reservation');
+  const cmp = this.milCompare(accountId, text);
+  if (cmp) return compareReply(cmp, rules);
   const comparing = retriever.modelTokens(text).length >= 2;
   const multiItem = !comparing && splitItems(text).length >= 2;
   const toAgent = this.agentOn && (multiItem || retriever.refersToPrevious(text));

@@ -140,16 +140,6 @@ enum MILFlex {
         return c.family(of: m)?.aliases.first ?? m.code
     }
 
-    /// 比較型號第一步：選第一台（送出「比較 P5405CSA」）
-    static func compareStart(_ c: MILCatalog) -> [String] {
-        c.models.prefix(13).map { "比較 \(pairLabel(c, $0))" }
-    }
-
-    /// 比較型號第二步：選要比的另一台（送出「P5405CSA vs B5302C」）
-    static func compareWith(_ c: MILCatalog, _ m: MILModel) -> [String] {
-        c.models.filter { $0.id != m.id }.prefix(13).map { "\(pairLabel(c, m)) vs \(pairLabel(c, $0))" }
-    }
-
     static func json(_ v: J) -> String {
         let data = (try? JSONSerialization.data(withJSONObject: v, options: [.sortedKeys, .withoutEscapingSlashes])) ?? Data("{}".utf8)
         return String(decoding: data, as: UTF8.self)

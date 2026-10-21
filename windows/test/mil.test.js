@@ -11,11 +11,21 @@ const G = require('../src/core/mil/generator');
 const MIL = require('../src/core/mil');
 const P = require('../src/core/mil/parser');
 const R = require('../src/core/retriever');
+const X = require('../src/core/mil/compare');
 const { defaultAccountData, makeFAQ, makeDoc } = require('../src/core/models');
 
 const fixtures = path.join(__dirname, 'fixtures');
 
-test('產生器 FAQ 跟 Mac 版完全相同（109 題，含 Flex 卡片與快速選項）', () => {
+/// 跟 App 一樣的順序：先看是不是比較題（即時產生），再比對 FAQ
+function router(c, faqs) {
+  return (t) => {
+    const r = X.handle(c, t);
+    if (r) return r;
+    return R.matchFAQ(t, R.modelTokens(t).length >= 2 ? faqs.filter((f) => f.question.includes('比較')) : faqs);
+  };
+}
+
+test('產生器 FAQ 跟 Mac 版完全相同（93 題，含 Flex 卡片與快速選項）', () => {
   const golden = JSON.parse(fs.readFileSync(path.join(fixtures, 'faqs_swift.json'), 'utf8'));
   const faqs = G.faqs(C.seedCatalog());
   assert.strictEqual(faqs.length, golden.length);
@@ -70,11 +80,11 @@ const cases = [
 ];
 
 test('FAQ 比對回歸 75/75', () => {
-  const faqs = G.faqs(C.seedCatalog());
+  const c = C.seedCatalog();
+  const route = router(c, G.faqs(c));
   const fails = [];
   for (const [q, expect] of cases) {
-    const cmp = R.modelTokens(q).length >= 2;
-    const hit = R.matchFAQ(q, cmp ? faqs.filter((f) => f.question.includes('比較')) : faqs);
+    const hit = route(q);
     const got = hit ? hit.question : '(無)';
     if (got !== expect) fails.push(`${q} → ${got}（預期：${expect}）`);
   }
@@ -89,9 +99,9 @@ test('一鍵產生：只替換自動產生的 FAQ，保留手動 FAQ', () => {
   d.docs = [makeDoc('ASUS商用筆電-MIL-STD-810H軍規測試', '舊文件'), makeDoc('菜單', '咖啡')];
   assert.strictEqual(MIL.needsRegenerate(cat, d), true);
   const r = MIL.applyGenerated(d, cat);
-  assert.strictEqual(r.faqs, 109);
+  assert.strictEqual(r.faqs, 93);
   assert.strictEqual(r.removed, 1);
-  assert.strictEqual(d.faqs.length, 110);
+  assert.strictEqual(d.faqs.length, 94);
   assert.strictEqual(d.faqs[0].question, '營業時間');
   assert.deepStrictEqual(d.docs.map((x) => x.title), [G.DOC_TITLE, '菜單']);
   cat.lastGenerated = '2026-10-18T00:00:00Z';
@@ -100,7 +110,7 @@ test('一鍵產生：只替換自動產生的 FAQ，保留手動 FAQ', () => {
   assert.strictEqual(MIL.needsRegenerate(cat, d), true);
   // 再產生一次不會越來越多
   MIL.applyGenerated(d, cat);
-  assert.strictEqual(d.faqs.length, 110);
+  assert.strictEqual(d.faqs.length, 94);
   assert.strictEqual(d.docs.length, 2);
 });
 
@@ -134,10 +144,14 @@ test('PDF 解析：壞檔案給中文錯誤', async () => {
   await assert.rejects(P.load(Buffer.from('not a pdf')), /不是可以讀取的 PDF/);
 });
 
-test('卡片按鈕與「比較型號」快速選項都對到正確的 FAQ', () => {
-  const faqs = G.faqs(C.seedCatalog());
-  const route = (t) => R.matchFAQ(t, R.modelTokens(t).length >= 2 ? faqs.filter((f) => f.question.includes('比較')) : faqs);
-  for (const f of faqs.filter((x) => x.flex)) {
+test('卡片按鈕與「比較型號」快速選項都對到正確的回答', () => {
+  const c = C.seedCatalog();
+  const faqs = G.faqs(c);
+  const route = router(c, faqs);
+  // 即時產生的比較表卡片，按鈕（「P5405CSA 全部項目」）也要對得到
+  const cards = faqs.filter((x) => x.flex);
+  for (const m of c.models) for (const x of c.models) if (m !== x) cards.push({ question: `${m.code} vs ${x.code}`, flex: X.handle(c, `${m.code} vs ${x.code}`).flex });
+  for (const f of cards) {
     for (const b of (JSON.parse(f.flex).footer || { contents: [] }).contents) {
       assert.strictEqual((route(b.action.text) || {}).question, b.action.text, `「${f.question}」的按鈕「${b.action.label}」`);
     }
@@ -171,7 +185,7 @@ test('自訂測試項目：跟 Mac 版產生的 FAQ、卡片、背景知識完�
   });
   assert.strictEqual(G.doc(c).content, fs.readFileSync(path.join(fixtures, 'doc_swift_custom.txt'), 'utf8'));
   // 新項目可以被問到
-  const route = (t) => R.matchFAQ(t, R.modelTokens(t).length >= 2 ? faqs.filter((f) => f.question.includes('比較')) : faqs);
+  const route = router(c, faqs);
   assert.strictEqual(route('淋雨測試怎麼做').question, '淋雨測試怎麼做');
   assert.strictEqual(route('P5 下雨天可以用嗎').question, 'P5405CSA 淋雨測試');
   assert.strictEqual(route('放冷凍庫會壞嗎').question, '低溫測試怎麼做');
@@ -202,4 +216,57 @@ test('手動修改過的自動產生題目，重新產生時保留', () => {
   assert.strictEqual(r.kept, 1);
   assert.strictEqual(d.faqs.filter((x) => x.question === 'P5405CSA 低溫測試').length, 1);
   assert.strictEqual(d.faqs.find((x) => x.question === 'P5405CSA 低溫測試').answer, '我自己寫的答案');
+});
+
+test('型號比較即時產生：輸出跟 Mac 版完全相同（13 款以內與 40 款兩種）', () => {
+  const large = C.normalizeCatalog(JSON.parse(fs.readFileSync(path.join(fixtures, 'catalog_large.json'), 'utf8')));
+  const seed = C.seedCatalog();
+  const golden = JSON.parse(fs.readFileSync(path.join(fixtures, 'compare_swift.json'), 'utf8'));
+  assert.ok(golden.length >= 100);
+  for (const g of golden) {
+    const r = X.handle(g.c === 'seed' ? seed : large, g.q);
+    assert.deepStrictEqual(r ? { question: r.question, answer: r.answer, flex: r.flex || null, qr: r.quickReplies } : null,
+      g.question == null ? null : { question: g.question, answer: g.answer, flex: g.flex || null, qr: g.qr }, `${g.c}：${g.q}`);
+  }
+});
+
+test('型號比較：40 款時先選系列，每組任兩台都點得到、每一步最多 13 個選項', () => {
+  const c = C.normalizeCatalog(JSON.parse(fs.readFileSync(path.join(fixtures, 'catalog_large.json'), 'utf8')));
+  assert.strictEqual(c.models.length, 40);
+  const start = X.handle(c, '比較型號');
+  assert.match(start.answer, /40 款.*系列/);
+  assert.ok(start.quickReplies.includes('比較 QA1 系列'));
+  const seen = new Set(), pairs = new Set();
+  const queue = ['比較型號'];
+  let steps = 0;
+  while (queue.length) {
+    const q = queue.shift();
+    if (seen.has(q)) continue;
+    seen.add(q);
+    const r = X.handle(c, q);
+    assert.ok(r, `按鈕「${q}」沒有回應`);
+    assert.ok(r.quickReplies.length <= 13, `「${q}」有 ${r.quickReplies.length} 個選項`);
+    if (r.flex) { pairs.add(r.question); continue; }
+    steps++;
+    queue.push(...r.quickReplies);
+  }
+  // 40 × 39 / 2 組，每一組都能從選單一路點到
+  assert.strictEqual(pairs.size, 40 * 39 / 2);
+  assert.ok(steps > 40);
+  // 系列 15 款會分頁：12 個 + 「第 2 頁」
+  const qa1 = X.handle(c, '比較 QA1 系列');
+  assert.strictEqual(qa1.quickReplies.length, 13);
+  assert.strictEqual(qa1.quickReplies[12], '比較 QA1 系列 第2頁');
+  assert.deepStrictEqual(X.handle(c, '比較 QA1 系列 第2頁').quickReplies, ['比較 QA1013XA', '比較 QA1014XA', '比較 QA1015XA']);
+  // 打字問也可以
+  assert.strictEqual(X.handle(c, 'qa1003xa 跟 QP5001XA 哪台好').question, 'QA1003XA 和 QP5001XA 比較');
+  assert.strictEqual(X.handle(c, '營業時間'), null);
+  assert.strictEqual(X.handle(c, 'P5 低溫測試'), null);
+});
+
+test('型號比較：不再預先產生，40 款的 FAQ 也不會爆量', () => {
+  const c = C.normalizeCatalog(JSON.parse(fs.readFileSync(path.join(fixtures, 'catalog_large.json'), 'utf8')));
+  const faqs = G.faqs(c);
+  assert.ok(!faqs.some((f) => / 和 .* 比較$/.test(f.question) || f.question === '比較型號'));
+  assert.ok(faqs.length < 40 * 15 + 60, `${faqs.length} 題`);
 });

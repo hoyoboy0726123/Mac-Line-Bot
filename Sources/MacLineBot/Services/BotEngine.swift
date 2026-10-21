@@ -215,7 +215,15 @@ extension AppState {
         let followUp = KnowledgeRetriever.isFollowUp(text) ? previous : nil
         let searchText = followUp.map { "\($0) \(text)" } ?? text
 
-        // 同時提到兩個以上型號是比較題：只用「A 和 B 比較」那類 FAQ（由資料算好的差異），沒有就交給 AI
+        // 型號比較：「比較型號」兩步選、「P5 跟 B5 差在哪」→ 即時產生比較表
+        if let cmp = milCompare(id, text) {
+            update(id) { d in
+                d.today.faq += 1
+                if let fid = cmp.faqId, let i = d.faqs.firstIndex(where: { $0.id == fid }) { d.faqs[i].hitCount += 1 }
+            }
+            return BotReply(text: cmp.reply.answer, source: .faq, quickReplies: cmp.reply.quickReplies, flex: rules.useFlex == false ? nil : cmp.reply.flex)
+        }
+        // 同時提到兩個以上型號是比較題：只用「A 和 B 比較」那類 FAQ（店家自己寫的）
         let comparing = KnowledgeRetriever.modelTokens(text).count >= 2
         // 一次問好幾項（「沙塵、凍融、艦載振動」）→ FAQ 只能答一項，交給 Agent 逐項查
         let agentReady = AIEngine.config.usingOllama && AIEngine.config.agentMode
@@ -639,6 +647,18 @@ extension AppState {
 
     // MARK: - 試答（不送出、不記錄）
 
+    /// 型號比較（MIL 版）：問的時候才算。店家自己寫過同一題（或手動改過）就用店家的版本
+    func milCompare(_ id: UUID, _ text: String) -> (reply: MILCompare.Reply, faqId: UUID?)? {
+        guard var r = MILCompare.handle(milCatalogs[id] ?? MILCatalog.seed, text) else { return nil }
+        if let own = data[id]?.faqs.first(where: { $0.question == r.question && (!$0.keywords.contains(MILGenerator.tag) || $0.keywords.contains(MILGenerator.edited)) }) {
+            r.answer = own.answer
+            r.flex = own.flex
+            r.quickReplies = own.quickReplies ?? []
+            return (r, own.id)
+        }
+        return (r, nil)
+    }
+
     func preview(_ text: String, accountId: UUID) async -> BotReply {
         let d = data[accountId] ?? AccountData()
         let rules = d.rules
@@ -650,6 +670,9 @@ extension AppState {
         }
         if rules.reservationEnabled, KnowledgeRetriever.containsAny(text, rules.reservationKeywords) != nil {
             return BotReply(text: "（會開始預約收單流程）", source: .reservation)
+        }
+        if let cmp = milCompare(accountId, text) {
+            return BotReply(text: cmp.reply.answer, source: .faq, quickReplies: cmp.reply.quickReplies, flex: rules.useFlex == false ? nil : cmp.reply.flex)
         }
         let comparing = KnowledgeRetriever.modelTokens(text).count >= 2
         if let faq = KnowledgeRetriever.matchFAQ(text, in: comparing ? d.faqs.filter { $0.question.contains("比較") } : d.faqs) {

@@ -1,0 +1,1818 @@
+{
+ "models": [
+  {
+   "id": "08C1F379-04CB-4DDB-88D7-01CF3473DE0E",
+   "code": "P5405CSA",
+   "display": "ExpertBook P5 14 吋（P5405CSA）",
+   "aliases": [
+    "P5405CSA",
+    "P5405",
+    "ExpertBook P5",
+    "P5"
+   ],
+   "family": "",
+   "passed": {
+    "altitude": [
+     "I",
+     "II"
+    ],
+    "hot": [
+     "A2op",
+     "A2st"
+    ],
+    "cold": [
+     "C1st",
+     "C1op"
+    ],
+    "tshock": [
+     "IA",
+     "IB",
+     "IC"
+    ],
+    "solar": [
+     "I"
+    ],
+    "humidity": [
+     "II"
+    ],
+    "dust": [
+     "I",
+     "II"
+    ],
+    "vibration": [
+     "CI",
+     "CIV",
+     "CVII",
+     "E1"
+    ],
+    "drop": [
+     "VI"
+    ],
+    "shock": [
+     "I",
+     "II",
+     "III",
+     "V"
+    ],
+    "freeze": [
+     "III"
+    ],
+    "ship": [
+     "1"
+    ]
+   },
+   "describedOnly": {
+    "hot": [
+     "A1op",
+     "A1st"
+    ],
+    "cold": [
+     "C2st",
+     "C2op"
+    ],
+    "explosive": [
+     "I"
+    ],
+    "vibration": [
+     "CVI"
+    ]
+   },
+   "reportURL": "https://www.asus.com/tw/event/militarygradereport/asusexpertbookp5405csa.pdf",
+   "standard": "MIL-STD-810H"
+  },
+  {
+   "id": "9A0B99A3-1036-487B-93CC-6CF2E7262BE2",
+   "code": "B5302C",
+   "display": "ExpertBook B5（B5302C）",
+   "aliases": [
+    "B5302C",
+    "B5302",
+    "ExpertBook B5",
+    "B5"
+   ],
+   "family": "",
+   "passed": {
+    "altitude": [
+     "I",
+     "II"
+    ],
+    "hot": [
+     "A1op",
+     "A1st",
+     "A2op",
+     "A2st"
+    ],
+    "cold": [
+     "C1st",
+     "C1op",
+     "C2st",
+     "C2op"
+    ],
+    "tshock": [
+     "IC"
+    ],
+    "humidity": [
+     "II"
+    ],
+    "dust": [
+     "II"
+    ],
+    "vibration": [
+     "CVI",
+     "CIV",
+     "CI"
+    ],
+    "drop": [
+     "IV",
+     "VI"
+    ],
+    "shock": [
+     "I",
+     "II",
+     "III"
+    ],
+    "freeze": [
+     "III"
+    ],
+    "ship": [
+     "1"
+    ]
+   },
+   "describedOnly": {},
+   "reportURL": "https://www.asus.com/event/militarygradereport/ASUSExpertBookB5-B5302C.pdf",
+   "standard": "MIL-STD-810H"
+  },
+  {
+   "id": "6DF055C8-F212-4505-9661-5C79D30A748D",
+   "code": "B1400CBA",
+   "display": "ExpertBook B1 第 12 代（B1400CBA）",
+   "aliases": [
+    "B1400CBA",
+    "B1 12代",
+    "B1第12代",
+    "12代B1"
+   ],
+   "family": "ExpertBook B1",
+   "passed": {
+    "altitude": [
+     "I",
+     "II"
+    ],
+    "hot": [
+     "A1op",
+     "A1st",
+     "A2op",
+     "A2st"
+    ],
+    "cold": [
+     "C1st",
+     "C1op",
+     "C2st",
+     "C2op"
+    ],
+    "humidity": [
+     "II"
+    ],
+    "dust": [
+     "II"
+    ],
+    "vibration": [
+     "CI",
+     "CIV",
+     "CVII"
+    ],
+    "drop": [
+     "VI"
+    ],
+    "shock": [
+     "I",
+     "II",
+     "III",
+     "V"
+    ],
+    "ship": [
+     "1"
+    ]
+   },
+   "describedOnly": {},
+   "reportURL": "https://www.asus.com/event/militarygradereport/asusexpertbookb1-b1400cba.pdf",
+   "standard": "MIL-STD-810H"
+  },
+  {
+   "id": "372B4551-B6E9-48BB-8514-F7E0152C7D15",
+   "code": "B1400／B1500",
+   "display": "ExpertBook B1（B1400／B1500）",
+   "aliases": [],
+   "family": "ExpertBook B1",
+   "passed": {
+    "altitude": [
+     "I",
+     "II"
+    ],
+    "hot": [
+     "A1op",
+     "A1st",
+     "A2op",
+     "A2st"
+    ],
+    "cold": [
+     "C1st",
+     "C1op"
+    ],
+    "vibration": [
+     "CI",
+     "CIV",
+     "CVII"
+    ],
+    "drop": [
+     "VI"
+    ],
+    "shock": [
+     "I",
+     "III"
+    ],
+    "ship": [
+     "1"
+    ]
+   },
+   "describedOnly": {},
+   "reportURL": "https://www.asus.com/event/militarygradereport/ASUSExpertBookB1-B1400-B1500.pdf",
+   "standard": "MIL-STD-810H"
+  },
+  {
+   "id": "93C36495-D84B-4398-A571-F470F0876C65",
+   "code": "L1400",
+   "display": "ExpertBook L1（L1400）",
+   "aliases": [
+    "L1400",
+    "ExpertBook L1",
+    "L1"
+   ],
+   "family": "",
+   "passed": {
+    "altitude": [
+     "I",
+     "II"
+    ],
+    "hot": [
+     "A1op",
+     "A1st",
+     "A2op",
+     "A2st"
+    ],
+    "cold": [
+     "C1st",
+     "C1op",
+     "C2st",
+     "C2op"
+    ],
+    "humidity": [
+     "II"
+    ],
+    "vibration": [
+     "CI",
+     "CIV",
+     "CVII"
+    ],
+    "drop": [
+     "VI"
+    ],
+    "shock": [
+     "I"
+    ]
+   },
+   "describedOnly": {},
+   "reportURL": "https://www.asus.com/event/militarygradereport/ASUSExpertBookL1-L1400.pdf",
+   "standard": "MIL-STD-810H"
+  },
+  {
+   "id": "F252D8E4-8B34-4EF7-BAC2-1F7338DFF621",
+   "code": "QA1001XA",
+   "display": "QA1001XA（測試）",
+   "aliases": [
+    "QA1001XA"
+   ],
+   "family": "",
+   "passed": {
+    "hot": [
+     "A1op",
+     "A2op"
+    ],
+    "cold": [
+     "C1st",
+     "C2st"
+    ],
+    "solar": [
+     "I"
+    ],
+    "humidity": [
+     "II"
+    ],
+    "explosive": [
+     "I"
+    ],
+    "vibration": [
+     "CI",
+     "CVII",
+     "E1"
+    ],
+    "shock": [
+     "I",
+     "III"
+    ],
+    "freeze": [
+     "III"
+    ]
+   },
+   "describedOnly": {},
+   "reportURL": "",
+   "standard": "MIL-STD-810H"
+  },
+  {
+   "id": "CCCD2004-2697-4DE0-A39C-C04914E2A4C0",
+   "code": "QA1002XA",
+   "display": "QA1002XA（測試）",
+   "aliases": [
+    "QA1002XA"
+   ],
+   "family": "",
+   "passed": {
+    "altitude": [
+     "II"
+    ],
+    "hot": [
+     "A1st",
+     "A2st"
+    ],
+    "tshock": [
+     "IB"
+    ],
+    "solar": [
+     "I"
+    ],
+    "dust": [
+     "II"
+    ],
+    "explosive": [
+     "I"
+    ],
+    "drop": [
+     "IV"
+    ],
+    "shock": [
+     "II",
+     "V"
+    ],
+    "ship": [
+     "1"
+    ]
+   },
+   "describedOnly": {},
+   "reportURL": "",
+   "standard": "MIL-STD-810H"
+  },
+  {
+   "id": "544DA363-EA88-4089-812C-AFCFC8CB9F56",
+   "code": "QA1003XA",
+   "display": "QA1003XA（測試）",
+   "aliases": [
+    "QA1003XA"
+   ],
+   "family": "",
+   "passed": {
+    "altitude": [
+     "I"
+    ],
+    "cold": [
+     "C1st",
+     "C2st"
+    ],
+    "tshock": [
+     "IA",
+     "IC"
+    ],
+    "humidity": [
+     "II"
+    ],
+    "dust": [
+     "I"
+    ],
+    "vibration": [
+     "CI",
+     "CVII",
+     "E1"
+    ],
+    "drop": [
+     "VI"
+    ],
+    "freeze": [
+     "III"
+    ],
+    "ship": [
+     "1"
+    ]
+   },
+   "describedOnly": {},
+   "reportURL": "",
+   "standard": "MIL-STD-810H"
+  },
+  {
+   "id": "BCA70F52-D27A-4F9A-82F2-ADBC877B2766",
+   "code": "QA1004XA",
+   "display": "QA1004XA（測試）",
+   "aliases": [
+    "QA1004XA"
+   ],
+   "family": "",
+   "passed": {
+    "hot": [
+     "A1st",
+     "A2st"
+    ],
+    "cold": [
+     "C1op",
+     "C2op"
+    ],
+    "solar": [
+     "I"
+    ],
+    "humidity": [
+     "II"
+    ],
+    "explosive": [
+     "I"
+    ],
+    "vibration": [
+     "CIV",
+     "CVI"
+    ],
+    "shock": [
+     "II",
+     "V"
+    ],
+    "freeze": [
+     "III"
+    ]
+   },
+   "describedOnly": {},
+   "reportURL": "",
+   "standard": "MIL-STD-810H"
+  },
+  {
+   "id": "369E7B29-CCAB-45DF-B8FC-44E1324FB27F",
+   "code": "QA1005XA",
+   "display": "QA1005XA（測試）",
+   "aliases": [
+    "QA1005XA"
+   ],
+   "family": "",
+   "passed": {
+    "altitude": [
+     "I"
+    ],
+    "hot": [
+     "A1op",
+     "A2op"
+    ],
+    "tshock": [
+     "IA",
+     "IC"
+    ],
+    "solar": [
+     "I"
+    ],
+    "dust": [
+     "I"
+    ],
+    "explosive": [
+     "I"
+    ],
+    "drop": [
+     "VI"
+    ],
+    "shock": [
+     "I",
+     "III"
+    ],
+    "ship": [
+     "1"
+    ]
+   },
+   "describedOnly": {},
+   "reportURL": "",
+   "standard": "MIL-STD-810H"
+  },
+  {
+   "id": "0C354FC7-F6BE-4D76-A7F6-F2C28C7B9BED",
+   "code": "QA1006XA",
+   "display": "QA1006XA（測試）",
+   "aliases": [
+    "QA1006XA"
+   ],
+   "family": "",
+   "passed": {
+    "altitude": [
+     "II"
+    ],
+    "cold": [
+     "C1op",
+     "C2op"
+    ],
+    "tshock": [
+     "IB"
+    ],
+    "humidity": [
+     "II"
+    ],
+    "dust": [
+     "II"
+    ],
+    "vibration": [
+     "CIV",
+     "CVI"
+    ],
+    "drop": [
+     "IV"
+    ],
+    "freeze": [
+     "III"
+    ],
+    "ship": [
+     "1"
+    ]
+   },
+   "describedOnly": {},
+   "reportURL": "",
+   "standard": "MIL-STD-810H"
+  },
+  {
+   "id": "E2250771-3907-4113-AA84-2C53927DB858",
+   "code": "QA1007XA",
+   "display": "QA1007XA（測試）",
+   "aliases": [
+    "QA1007XA"
+   ],
+   "family": "",
+   "passed": {
+    "hot": [
+     "A1op",
+     "A2op"
+    ],
+    "cold": [
+     "C1st",
+     "C2st"
+    ],
+    "solar": [
+     "I"
+    ],
+    "humidity": [
+     "II"
+    ],
+    "explosive": [
+     "I"
+    ],
+    "vibration": [
+     "CI",
+     "CVII",
+     "E1"
+    ],
+    "shock": [
+     "I",
+     "III"
+    ],
+    "freeze": [
+     "III"
+    ]
+   },
+   "describedOnly": {},
+   "reportURL": "",
+   "standard": "MIL-STD-810H"
+  },
+  {
+   "id": "6CA642DD-56E5-4186-8B07-787C96172E0F",
+   "code": "QA1008XA",
+   "display": "QA1008XA（測試）",
+   "aliases": [
+    "QA1008XA"
+   ],
+   "family": "",
+   "passed": {
+    "altitude": [
+     "II"
+    ],
+    "hot": [
+     "A1st",
+     "A2st"
+    ],
+    "tshock": [
+     "IB"
+    ],
+    "solar": [
+     "I"
+    ],
+    "dust": [
+     "II"
+    ],
+    "explosive": [
+     "I"
+    ],
+    "drop": [
+     "IV"
+    ],
+    "shock": [
+     "II",
+     "V"
+    ],
+    "ship": [
+     "1"
+    ]
+   },
+   "describedOnly": {},
+   "reportURL": "",
+   "standard": "MIL-STD-810H"
+  },
+  {
+   "id": "03A525F9-3D59-4429-B932-3E11031CB09E",
+   "code": "QA1009XA",
+   "display": "QA1009XA（測試）",
+   "aliases": [
+    "QA1009XA"
+   ],
+   "family": "",
+   "passed": {
+    "altitude": [
+     "I"
+    ],
+    "cold": [
+     "C1st",
+     "C2st"
+    ],
+    "tshock": [
+     "IA",
+     "IC"
+    ],
+    "humidity": [
+     "II"
+    ],
+    "dust": [
+     "I"
+    ],
+    "vibration": [
+     "CI",
+     "CVII",
+     "E1"
+    ],
+    "drop": [
+     "VI"
+    ],
+    "freeze": [
+     "III"
+    ],
+    "ship": [
+     "1"
+    ]
+   },
+   "describedOnly": {},
+   "reportURL": "",
+   "standard": "MIL-STD-810H"
+  },
+  {
+   "id": "8F45522C-6AD5-4BE3-8CCD-F1EDF5BBBF80",
+   "code": "QA1010XA",
+   "display": "QA1010XA（測試）",
+   "aliases": [
+    "QA1010XA"
+   ],
+   "family": "",
+   "passed": {
+    "hot": [
+     "A1st",
+     "A2st"
+    ],
+    "cold": [
+     "C1op",
+     "C2op"
+    ],
+    "solar": [
+     "I"
+    ],
+    "humidity": [
+     "II"
+    ],
+    "explosive": [
+     "I"
+    ],
+    "vibration": [
+     "CIV",
+     "CVI"
+    ],
+    "shock": [
+     "II",
+     "V"
+    ],
+    "freeze": [
+     "III"
+    ]
+   },
+   "describedOnly": {},
+   "reportURL": "",
+   "standard": "MIL-STD-810H"
+  },
+  {
+   "id": "649D07AD-93E5-4CEB-8559-940BAB3E0E7E",
+   "code": "QA1011XA",
+   "display": "QA1011XA（測試）",
+   "aliases": [
+    "QA1011XA"
+   ],
+   "family": "",
+   "passed": {
+    "altitude": [
+     "I"
+    ],
+    "hot": [
+     "A1op",
+     "A2op"
+    ],
+    "tshock": [
+     "IA",
+     "IC"
+    ],
+    "solar": [
+     "I"
+    ],
+    "dust": [
+     "I"
+    ],
+    "explosive": [
+     "I"
+    ],
+    "drop": [
+     "VI"
+    ],
+    "shock": [
+     "I",
+     "III"
+    ],
+    "ship": [
+     "1"
+    ]
+   },
+   "describedOnly": {},
+   "reportURL": "",
+   "standard": "MIL-STD-810H"
+  },
+  {
+   "id": "3ADFD0C1-6AAB-4449-A223-E30D0AC69135",
+   "code": "QA1012XA",
+   "display": "QA1012XA（測試）",
+   "aliases": [
+    "QA1012XA"
+   ],
+   "family": "",
+   "passed": {
+    "altitude": [
+     "II"
+    ],
+    "cold": [
+     "C1op",
+     "C2op"
+    ],
+    "tshock": [
+     "IB"
+    ],
+    "humidity": [
+     "II"
+    ],
+    "dust": [
+     "II"
+    ],
+    "vibration": [
+     "CIV",
+     "CVI"
+    ],
+    "drop": [
+     "IV"
+    ],
+    "freeze": [
+     "III"
+    ],
+    "ship": [
+     "1"
+    ]
+   },
+   "describedOnly": {},
+   "reportURL": "",
+   "standard": "MIL-STD-810H"
+  },
+  {
+   "id": "7F303030-FA15-454B-923E-5CC7809381E7",
+   "code": "QA1013XA",
+   "display": "QA1013XA（測試）",
+   "aliases": [
+    "QA1013XA"
+   ],
+   "family": "",
+   "passed": {
+    "hot": [
+     "A1op",
+     "A2op"
+    ],
+    "cold": [
+     "C1st",
+     "C2st"
+    ],
+    "solar": [
+     "I"
+    ],
+    "humidity": [
+     "II"
+    ],
+    "explosive": [
+     "I"
+    ],
+    "vibration": [
+     "CI",
+     "CVII",
+     "E1"
+    ],
+    "shock": [
+     "I",
+     "III"
+    ],
+    "freeze": [
+     "III"
+    ]
+   },
+   "describedOnly": {},
+   "reportURL": "",
+   "standard": "MIL-STD-810H"
+  },
+  {
+   "id": "BE2BD4A2-84E1-43CB-A820-2A7C100D0D81",
+   "code": "QA1014XA",
+   "display": "QA1014XA（測試）",
+   "aliases": [
+    "QA1014XA"
+   ],
+   "family": "",
+   "passed": {
+    "altitude": [
+     "II"
+    ],
+    "hot": [
+     "A1st",
+     "A2st"
+    ],
+    "tshock": [
+     "IB"
+    ],
+    "solar": [
+     "I"
+    ],
+    "dust": [
+     "II"
+    ],
+    "explosive": [
+     "I"
+    ],
+    "drop": [
+     "IV"
+    ],
+    "shock": [
+     "II",
+     "V"
+    ],
+    "ship": [
+     "1"
+    ]
+   },
+   "describedOnly": {},
+   "reportURL": "",
+   "standard": "MIL-STD-810H"
+  },
+  {
+   "id": "56DA361E-D66F-49FB-8C2A-D763568F07A5",
+   "code": "QA1015XA",
+   "display": "QA1015XA（測試）",
+   "aliases": [
+    "QA1015XA"
+   ],
+   "family": "",
+   "passed": {
+    "altitude": [
+     "I"
+    ],
+    "cold": [
+     "C1st",
+     "C2st"
+    ],
+    "tshock": [
+     "IA",
+     "IC"
+    ],
+    "humidity": [
+     "II"
+    ],
+    "dust": [
+     "I"
+    ],
+    "vibration": [
+     "CI",
+     "CVII",
+     "E1"
+    ],
+    "drop": [
+     "VI"
+    ],
+    "freeze": [
+     "III"
+    ],
+    "ship": [
+     "1"
+    ]
+   },
+   "describedOnly": {},
+   "reportURL": "",
+   "standard": "MIL-STD-810H"
+  },
+  {
+   "id": "3746291C-1BC8-4443-994C-A5941F079935",
+   "code": "QB2001XA",
+   "display": "QB2001XA（測試）",
+   "aliases": [
+    "QB2001XA"
+   ],
+   "family": "",
+   "passed": {
+    "hot": [
+     "A1st",
+     "A2st"
+    ],
+    "cold": [
+     "C1op",
+     "C2op"
+    ],
+    "solar": [
+     "I"
+    ],
+    "humidity": [
+     "II"
+    ],
+    "explosive": [
+     "I"
+    ],
+    "vibration": [
+     "CIV",
+     "CVI"
+    ],
+    "shock": [
+     "II",
+     "V"
+    ],
+    "freeze": [
+     "III"
+    ]
+   },
+   "describedOnly": {},
+   "reportURL": "",
+   "standard": "MIL-STD-810H"
+  },
+  {
+   "id": "86107182-F8E5-45FD-9D1A-FCF3FA4A0A0B",
+   "code": "QB2002XA",
+   "display": "QB2002XA（測試）",
+   "aliases": [
+    "QB2002XA"
+   ],
+   "family": "",
+   "passed": {
+    "altitude": [
+     "I"
+    ],
+    "hot": [
+     "A1op",
+     "A2op"
+    ],
+    "tshock": [
+     "IA",
+     "IC"
+    ],
+    "solar": [
+     "I"
+    ],
+    "dust": [
+     "I"
+    ],
+    "explosive": [
+     "I"
+    ],
+    "drop": [
+     "VI"
+    ],
+    "shock": [
+     "I",
+     "III"
+    ],
+    "ship": [
+     "1"
+    ]
+   },
+   "describedOnly": {},
+   "reportURL": "",
+   "standard": "MIL-STD-810H"
+  },
+  {
+   "id": "C9479EB6-5266-47F0-A0BA-A156CC161635",
+   "code": "QC3001XA",
+   "display": "QC3001XA（測試）",
+   "aliases": [
+    "QC3001XA"
+   ],
+   "family": "",
+   "passed": {
+    "altitude": [
+     "II"
+    ],
+    "cold": [
+     "C1op",
+     "C2op"
+    ],
+    "tshock": [
+     "IB"
+    ],
+    "humidity": [
+     "II"
+    ],
+    "dust": [
+     "II"
+    ],
+    "vibration": [
+     "CIV",
+     "CVI"
+    ],
+    "drop": [
+     "IV"
+    ],
+    "freeze": [
+     "III"
+    ],
+    "ship": [
+     "1"
+    ]
+   },
+   "describedOnly": {},
+   "reportURL": "",
+   "standard": "MIL-STD-810H"
+  },
+  {
+   "id": "77427091-648D-4337-8BFD-AF96D5BEF9D4",
+   "code": "QC3002XA",
+   "display": "QC3002XA（測試）",
+   "aliases": [
+    "QC3002XA"
+   ],
+   "family": "",
+   "passed": {
+    "hot": [
+     "A1op",
+     "A2op"
+    ],
+    "cold": [
+     "C1st",
+     "C2st"
+    ],
+    "solar": [
+     "I"
+    ],
+    "humidity": [
+     "II"
+    ],
+    "explosive": [
+     "I"
+    ],
+    "vibration": [
+     "CI",
+     "CVII",
+     "E1"
+    ],
+    "shock": [
+     "I",
+     "III"
+    ],
+    "freeze": [
+     "III"
+    ]
+   },
+   "describedOnly": {},
+   "reportURL": "",
+   "standard": "MIL-STD-810H"
+  },
+  {
+   "id": "D49230A4-2B87-44AC-962F-5C3E07CF5F95",
+   "code": "QD4001XA",
+   "display": "QD4001XA（測試）",
+   "aliases": [
+    "QD4001XA"
+   ],
+   "family": "",
+   "passed": {
+    "altitude": [
+     "II"
+    ],
+    "hot": [
+     "A1st",
+     "A2st"
+    ],
+    "tshock": [
+     "IB"
+    ],
+    "solar": [
+     "I"
+    ],
+    "dust": [
+     "II"
+    ],
+    "explosive": [
+     "I"
+    ],
+    "drop": [
+     "IV"
+    ],
+    "shock": [
+     "II",
+     "V"
+    ],
+    "ship": [
+     "1"
+    ]
+   },
+   "describedOnly": {},
+   "reportURL": "",
+   "standard": "MIL-STD-810H"
+  },
+  {
+   "id": "0AA91E10-981F-4A14-AFC9-553D3F3EE48B",
+   "code": "QD4002XA",
+   "display": "QD4002XA（測試）",
+   "aliases": [
+    "QD4002XA"
+   ],
+   "family": "",
+   "passed": {
+    "altitude": [
+     "I"
+    ],
+    "cold": [
+     "C1st",
+     "C2st"
+    ],
+    "tshock": [
+     "IA",
+     "IC"
+    ],
+    "humidity": [
+     "II"
+    ],
+    "dust": [
+     "I"
+    ],
+    "vibration": [
+     "CI",
+     "CVII",
+     "E1"
+    ],
+    "drop": [
+     "VI"
+    ],
+    "freeze": [
+     "III"
+    ],
+    "ship": [
+     "1"
+    ]
+   },
+   "describedOnly": {},
+   "reportURL": "",
+   "standard": "MIL-STD-810H"
+  },
+  {
+   "id": "E10276AF-9EF7-4436-9022-73607A6F93C8",
+   "code": "QE5001XA",
+   "display": "QE5001XA（測試）",
+   "aliases": [
+    "QE5001XA"
+   ],
+   "family": "",
+   "passed": {
+    "hot": [
+     "A1st",
+     "A2st"
+    ],
+    "cold": [
+     "C1op",
+     "C2op"
+    ],
+    "solar": [
+     "I"
+    ],
+    "humidity": [
+     "II"
+    ],
+    "explosive": [
+     "I"
+    ],
+    "vibration": [
+     "CIV",
+     "CVI"
+    ],
+    "shock": [
+     "II",
+     "V"
+    ],
+    "freeze": [
+     "III"
+    ]
+   },
+   "describedOnly": {},
+   "reportURL": "",
+   "standard": "MIL-STD-810H"
+  },
+  {
+   "id": "534A8DD3-7EEF-4855-B6CD-11463349E408",
+   "code": "QE5002XA",
+   "display": "QE5002XA（測試）",
+   "aliases": [
+    "QE5002XA"
+   ],
+   "family": "",
+   "passed": {
+    "altitude": [
+     "I"
+    ],
+    "hot": [
+     "A1op",
+     "A2op"
+    ],
+    "tshock": [
+     "IA",
+     "IC"
+    ],
+    "solar": [
+     "I"
+    ],
+    "dust": [
+     "I"
+    ],
+    "explosive": [
+     "I"
+    ],
+    "drop": [
+     "VI"
+    ],
+    "shock": [
+     "I",
+     "III"
+    ],
+    "ship": [
+     "1"
+    ]
+   },
+   "describedOnly": {},
+   "reportURL": "",
+   "standard": "MIL-STD-810H"
+  },
+  {
+   "id": "B6F80C3B-A94C-4180-86AE-431FF3FB20D0",
+   "code": "QF6001XA",
+   "display": "QF6001XA（測試）",
+   "aliases": [
+    "QF6001XA"
+   ],
+   "family": "",
+   "passed": {
+    "altitude": [
+     "II"
+    ],
+    "cold": [
+     "C1op",
+     "C2op"
+    ],
+    "tshock": [
+     "IB"
+    ],
+    "humidity": [
+     "II"
+    ],
+    "dust": [
+     "II"
+    ],
+    "vibration": [
+     "CIV",
+     "CVI"
+    ],
+    "drop": [
+     "IV"
+    ],
+    "freeze": [
+     "III"
+    ],
+    "ship": [
+     "1"
+    ]
+   },
+   "describedOnly": {},
+   "reportURL": "",
+   "standard": "MIL-STD-810H"
+  },
+  {
+   "id": "6E9D0E60-4977-4A9E-805C-9F26B0FF26BC",
+   "code": "QF6002XA",
+   "display": "QF6002XA（測試）",
+   "aliases": [
+    "QF6002XA"
+   ],
+   "family": "",
+   "passed": {
+    "hot": [
+     "A1op",
+     "A2op"
+    ],
+    "cold": [
+     "C1st",
+     "C2st"
+    ],
+    "solar": [
+     "I"
+    ],
+    "humidity": [
+     "II"
+    ],
+    "explosive": [
+     "I"
+    ],
+    "vibration": [
+     "CI",
+     "CVII",
+     "E1"
+    ],
+    "shock": [
+     "I",
+     "III"
+    ],
+    "freeze": [
+     "III"
+    ]
+   },
+   "describedOnly": {},
+   "reportURL": "",
+   "standard": "MIL-STD-810H"
+  },
+  {
+   "id": "60820DDE-E0B7-4F6C-A881-30FE51CFF1D9",
+   "code": "QG7001XA",
+   "display": "QG7001XA（測試）",
+   "aliases": [
+    "QG7001XA"
+   ],
+   "family": "",
+   "passed": {
+    "altitude": [
+     "II"
+    ],
+    "hot": [
+     "A1st",
+     "A2st"
+    ],
+    "tshock": [
+     "IB"
+    ],
+    "solar": [
+     "I"
+    ],
+    "dust": [
+     "II"
+    ],
+    "explosive": [
+     "I"
+    ],
+    "drop": [
+     "IV"
+    ],
+    "shock": [
+     "II",
+     "V"
+    ],
+    "ship": [
+     "1"
+    ]
+   },
+   "describedOnly": {},
+   "reportURL": "",
+   "standard": "MIL-STD-810H"
+  },
+  {
+   "id": "95FE366F-46F7-4AA4-B8CD-D97A0B5BEAC0",
+   "code": "QH8001XA",
+   "display": "QH8001XA（測試）",
+   "aliases": [
+    "QH8001XA"
+   ],
+   "family": "",
+   "passed": {
+    "altitude": [
+     "I"
+    ],
+    "cold": [
+     "C1st",
+     "C2st"
+    ],
+    "tshock": [
+     "IA",
+     "IC"
+    ],
+    "humidity": [
+     "II"
+    ],
+    "dust": [
+     "I"
+    ],
+    "vibration": [
+     "CI",
+     "CVII",
+     "E1"
+    ],
+    "drop": [
+     "VI"
+    ],
+    "freeze": [
+     "III"
+    ],
+    "ship": [
+     "1"
+    ]
+   },
+   "describedOnly": {},
+   "reportURL": "",
+   "standard": "MIL-STD-810H"
+  },
+  {
+   "id": "FF520CAB-6072-4345-A891-108B68E50A41",
+   "code": "QJ9001XA",
+   "display": "QJ9001XA（測試）",
+   "aliases": [
+    "QJ9001XA"
+   ],
+   "family": "",
+   "passed": {
+    "hot": [
+     "A1st",
+     "A2st"
+    ],
+    "cold": [
+     "C1op",
+     "C2op"
+    ],
+    "solar": [
+     "I"
+    ],
+    "humidity": [
+     "II"
+    ],
+    "explosive": [
+     "I"
+    ],
+    "vibration": [
+     "CIV",
+     "CVI"
+    ],
+    "shock": [
+     "II",
+     "V"
+    ],
+    "freeze": [
+     "III"
+    ]
+   },
+   "describedOnly": {},
+   "reportURL": "",
+   "standard": "MIL-STD-810H"
+  },
+  {
+   "id": "F797367A-1E71-4B59-8BF1-B26D83F41E75",
+   "code": "QK1001XA",
+   "display": "QK1001XA（測試）",
+   "aliases": [
+    "QK1001XA"
+   ],
+   "family": "",
+   "passed": {
+    "altitude": [
+     "I"
+    ],
+    "hot": [
+     "A1op",
+     "A2op"
+    ],
+    "tshock": [
+     "IA",
+     "IC"
+    ],
+    "solar": [
+     "I"
+    ],
+    "dust": [
+     "I"
+    ],
+    "explosive": [
+     "I"
+    ],
+    "drop": [
+     "VI"
+    ],
+    "shock": [
+     "I",
+     "III"
+    ],
+    "ship": [
+     "1"
+    ]
+   },
+   "describedOnly": {},
+   "reportURL": "",
+   "standard": "MIL-STD-810H"
+  },
+  {
+   "id": "0D1EF341-C851-4098-B636-7A614F66C82E",
+   "code": "QL2001XA",
+   "display": "QL2001XA（測試）",
+   "aliases": [
+    "QL2001XA"
+   ],
+   "family": "",
+   "passed": {
+    "altitude": [
+     "II"
+    ],
+    "cold": [
+     "C1op",
+     "C2op"
+    ],
+    "tshock": [
+     "IB"
+    ],
+    "humidity": [
+     "II"
+    ],
+    "dust": [
+     "II"
+    ],
+    "vibration": [
+     "CIV",
+     "CVI"
+    ],
+    "drop": [
+     "IV"
+    ],
+    "freeze": [
+     "III"
+    ],
+    "ship": [
+     "1"
+    ]
+   },
+   "describedOnly": {},
+   "reportURL": "",
+   "standard": "MIL-STD-810H"
+  },
+  {
+   "id": "E29E0E11-B64A-431B-8835-C3DC8F9503CD",
+   "code": "QM3001XA",
+   "display": "QM3001XA（測試）",
+   "aliases": [
+    "QM3001XA"
+   ],
+   "family": "",
+   "passed": {
+    "hot": [
+     "A1op",
+     "A2op"
+    ],
+    "cold": [
+     "C1st",
+     "C2st"
+    ],
+    "solar": [
+     "I"
+    ],
+    "humidity": [
+     "II"
+    ],
+    "explosive": [
+     "I"
+    ],
+    "vibration": [
+     "CI",
+     "CVII",
+     "E1"
+    ],
+    "shock": [
+     "I",
+     "III"
+    ],
+    "freeze": [
+     "III"
+    ]
+   },
+   "describedOnly": {},
+   "reportURL": "",
+   "standard": "MIL-STD-810H"
+  },
+  {
+   "id": "3A819E80-1DB5-47C4-8881-1F92F37F2D09",
+   "code": "QN4001XA",
+   "display": "QN4001XA（測試）",
+   "aliases": [
+    "QN4001XA"
+   ],
+   "family": "",
+   "passed": {
+    "altitude": [
+     "II"
+    ],
+    "hot": [
+     "A1st",
+     "A2st"
+    ],
+    "tshock": [
+     "IB"
+    ],
+    "solar": [
+     "I"
+    ],
+    "dust": [
+     "II"
+    ],
+    "explosive": [
+     "I"
+    ],
+    "drop": [
+     "IV"
+    ],
+    "shock": [
+     "II",
+     "V"
+    ],
+    "ship": [
+     "1"
+    ]
+   },
+   "describedOnly": {},
+   "reportURL": "",
+   "standard": "MIL-STD-810H"
+  },
+  {
+   "id": "23E18A2D-CA32-4547-BC26-6AACE6DA34D5",
+   "code": "QN4002XA",
+   "display": "QN4002XA（測試）",
+   "aliases": [
+    "QN4002XA"
+   ],
+   "family": "",
+   "passed": {
+    "altitude": [
+     "I"
+    ],
+    "cold": [
+     "C1st",
+     "C2st"
+    ],
+    "tshock": [
+     "IA",
+     "IC"
+    ],
+    "humidity": [
+     "II"
+    ],
+    "dust": [
+     "I"
+    ],
+    "vibration": [
+     "CI",
+     "CVII",
+     "E1"
+    ],
+    "drop": [
+     "VI"
+    ],
+    "freeze": [
+     "III"
+    ],
+    "ship": [
+     "1"
+    ]
+   },
+   "describedOnly": {},
+   "reportURL": "",
+   "standard": "MIL-STD-810H"
+  },
+  {
+   "id": "AD5CBAAB-15D6-4990-8139-4DBC31A93CE2",
+   "code": "QN4003XA",
+   "display": "QN4003XA（測試）",
+   "aliases": [
+    "QN4003XA"
+   ],
+   "family": "",
+   "passed": {
+    "hot": [
+     "A1st",
+     "A2st"
+    ],
+    "cold": [
+     "C1op",
+     "C2op"
+    ],
+    "solar": [
+     "I"
+    ],
+    "humidity": [
+     "II"
+    ],
+    "explosive": [
+     "I"
+    ],
+    "vibration": [
+     "CIV",
+     "CVI"
+    ],
+    "shock": [
+     "II",
+     "V"
+    ],
+    "freeze": [
+     "III"
+    ]
+   },
+   "describedOnly": {},
+   "reportURL": "",
+   "standard": "MIL-STD-810H"
+  },
+  {
+   "id": "B26D2922-7E2D-412A-993D-29935F748D2B",
+   "code": "QP5001XA",
+   "display": "QP5001XA（測試）",
+   "aliases": [
+    "QP5001XA"
+   ],
+   "family": "",
+   "passed": {
+    "altitude": [
+     "I"
+    ],
+    "hot": [
+     "A1op",
+     "A2op"
+    ],
+    "tshock": [
+     "IA",
+     "IC"
+    ],
+    "solar": [
+     "I"
+    ],
+    "dust": [
+     "I"
+    ],
+    "explosive": [
+     "I"
+    ],
+    "drop": [
+     "VI"
+    ],
+    "shock": [
+     "I",
+     "III"
+    ],
+    "ship": [
+     "1"
+    ]
+   },
+   "describedOnly": {},
+   "reportURL": "",
+   "standard": "MIL-STD-810H"
+  }
+ ],
+ "families": [
+  {
+   "id": "28081977-1EEB-4208-9425-95AE385C5C7A",
+   "name": "ExpertBook B1",
+   "aliases": [
+    "B1400",
+    "B1500",
+    "ExpertBook B1",
+    "B1"
+   ]
+  }
+ ]
+}

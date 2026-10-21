@@ -1,10 +1,10 @@
 import Foundation
 
 /// 由「軍規機種」資料自動產生 FAQ 與背景知識文件。
-/// 規則跟 knowledge/build_mil810h_faq.py 相同：每個型號 × 每個測試、系列、測試總覽、型號總表、兩兩比較、全部條件、一般問題。
+/// 規則跟 knowledge/build_mil810h_faq.py 相同：每個型號 × 每個測試、系列、測試總覽、型號總表、全部條件（兩台比較由 MILCompare 即時產生）、一般問題。
 enum MILGenerator {
-    /// 產生的格式改變時加 1，App 啟動時會自動重新產生（2 = 卡片 + 兩步選比較）
-    static let version = 2
+    /// 產生的格式改變時加 1，App 啟動時會自動重新產生（2 = 卡片 + 兩步選比較；3 = 比較改成即時產生）
+    static let version = 3
     static let tag = "#MIL自動產生"
     /// 自動產生的題目被手動改過後換成這個標記，重新產生時保留，不會被覆蓋
     static let edited = "#手動修改"
@@ -38,10 +38,6 @@ enum MILGenerator {
     }
 
     /// 比較與清單用的名稱與叫法：型號沒有自己的叫法時，用系列的叫法
-    private static func entityAliases(_ c: MILCatalog, _ m: MILModel) -> [String] {
-        m.aliases.isEmpty ? (c.family(of: m)?.aliases ?? [m.code]) : m.aliases
-    }
-
     private static func combos(_ a: [String], _ b: [String]) -> [String] {
         var seen = Set<String>(), out: [String] = []
         for x in a { for y in b { let k = "\(x)+\(y)"; if seen.insert(k).inserted { out.append(k) } } }
@@ -128,7 +124,7 @@ enum MILGenerator {
         return out.joined(separator: "\n")
     }
 
-    private static func compare(_ c: MILCatalog, _ a: MILModel, _ b: MILModel) -> String {
+    static func compare(_ c: MILCatalog, _ a: MILModel, _ b: MILModel) -> String {
         var both: [String] = [], onlyA: [String] = [], onlyB: [String] = [], diff: [String] = []
         for t in c.allTests {
             let pa = a.passes(t.id), pb = b.passes(t.id)
@@ -203,24 +199,7 @@ enum MILGenerator {
         for f in c.multiFamilies {
             out.append(faq("\(f.name) 通過哪些測試", familySummary(c, f), combos(f.aliases, summaryWords)))
         }
-        // 5) 兩兩比較（由資料算出差異，不靠模型推理）
-        for i in c.models.indices {
-            for j in c.models.indices where j > i {
-                let a = c.models[i], b = c.models[j]
-                out.append(withFlex(faq("\(a.code) 和 \(b.code) 比較", compare(c, a, b), combos(entityAliases(c, a), entityAliases(c, b))), MILFlex.compare(c, a, b)))
-            }
-        }
-        // 圖文選單「比較型號」：兩步選，先選第一台、再選要比的另一台
-        if c.models.count >= 2 {
-            var f = faq("比較型號", "想比較哪兩台呢？先選第一台 👇\n也可以直接輸入例如「P5 跟 B5 差在哪」🙂", ["比較型號", "型號比較", "比較機種", "機種比較", "比一比"])
-            f.quickReplies = MILFlex.compareStart(c)
-            out.append(f)
-            for m in c.models.prefix(13) {
-                var step = faq("比較 \(MILFlex.pairLabel(c, m))", "要拿 \(m.display) 跟哪一台比較呢？👇", [])
-                step.quickReplies = MILFlex.compareWith(c, m)
-                out.append(step)
-            }
-        }
+        // 5) 兩台比較不預先產生：顧客問的時候由 MILCompare 即時算（型號多的時候不會爆量）
         // 6) 一次列出全部條件
         out.append(faq("所有測試項目的詳細條件", allConditions(c), [
             "列出+項目+條件", "列出+項目+詳細", "所有+條件", "全部+條件", "每一項+條件", "每個項目+條件", "各項目+條件", "各項+條件",
