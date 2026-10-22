@@ -32,6 +32,20 @@ test('型號、追問與多項判斷', () => {
   assert.deepStrictEqual(agent.splitItems('P5 低溫測試'), []);
 });
 
+test('寒暄、問機器人不算追問', () => {
+  for (const t of ['你好', '謝謝你', '好的！', 'OK']) {
+    assert.ok(retriever.isSmallTalk(t), t);
+    assert.ok(!retriever.isFollowUp(t), t);
+  }
+  for (const t of ['你是誰', '您能做什麼', '怎麼用']) {
+    assert.ok(retriever.isAboutBot(t), t);
+    assert.ok(!retriever.isFollowUp(t), t);
+  }
+  assert.ok(retriever.isFollowUp('那低溫呢'));
+  assert.ok(retriever.isFollowUp('B5呢'));
+  assert.ok(!retriever.isAboutBot('你是P5嗎'));
+});
+
 test('回覆排版與無資料判斷', () => {
   assert.strictEqual(ai.formatForLINE('條件如下：A 測試；B 測試；C 測試。'), '條件如下：\n・A 測試\n・B 測試\n・C 測試');
   assert.strictEqual(ai.formatForLINE('- 第一\n- 第二'), '・第一\n・第二');

@@ -72,7 +72,7 @@ const makeFAQ = (question, answer, keywords = []) => ({
 const makeDoc = (title, content) => ({ id: uuid(), title, content, updatedAt: iso() });
 
 const SOURCE_LABEL = {
-  faq: 'FAQ', ai: 'AI', handoff: '轉人工', fallback: '待補', reservation: '預約',
+  faq: 'FAQ', ai: 'AI', guide: '引導', handoff: '轉人工', fallback: '待補', reservation: '預約',
   owner: '店家', greeting: '歡迎', blocked: '敏感', system: '系統',
 };
 

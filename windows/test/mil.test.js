@@ -270,3 +270,16 @@ test('型號比較：不再預先產生，40 款的 FAQ 也不會爆量', () => 
   assert.ok(!faqs.some((f) => / 和 .* 比較$/.test(f.question) || f.question === '比較型號'));
   assert.ok(faqs.length < 40 * 15 + 60, `${faqs.length} 題`);
 });
+
+test('比較第二步直接打型號：認得就比較、不認得就說沒有資料、別的問題不攔', () => {
+  const c = C.normalizeCatalog(C.seedCatalog());
+  const s = X.handle(c, '比較 B5302C');
+  assert.strictEqual(s.from, 'B5302C');
+  assert.strictEqual(X.pickSecond(c, s.from, 'P5').question, 'P5405CSA 和 B5302C 比較');
+  assert.strictEqual(X.pickSecond(c, s.from, '跟 L1 吧').question, 'B5302C 和 L1400 比較');
+  const none = X.pickSecond(c, s.from, 'B7');
+  assert.match(none.answer, /目前沒有「B7」/);
+  assert.ok(!none.flex && none.quickReplies.length === 4);
+  assert.strictEqual(X.pickSecond(c, s.from, 'P5 可以摔嗎'), null);
+  assert.strictEqual(X.pickSecond(c, s.from, '好'), null);
+});
