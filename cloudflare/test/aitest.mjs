@@ -9,7 +9,7 @@ const BASE = process.env.BASE || 'https://mac-line-bot-mil-aitest.line-bot-media
 const PASSWORD = (process.env.PASSWORD || fs.readFileSync(process.env.PASSWORD_FILE, 'utf8')).trim();
 const SECRET = 'aitest-secret';
 
-const QUESTIONS = [
+const QUESTIONS = process.env.QS ? process.env.QS.split("|") : [
   // 本機評估用的 10 題
   '溫度衝擊測試怎麼做', '摔到地上會壞嗎', 'B1400 有做沙塵測試嗎', 'P5 可以耐多低溫', '筆電可以淋雨嗎',
   '坐飛機帶著沒問題吧', 'L1400 有沒有做溫度衝擊', '摔壞了保固有賠嗎', '放在車上曬太陽會怎樣', '開車載著一直震動可以嗎',

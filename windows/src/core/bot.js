@@ -248,8 +248,19 @@ P.decide = async function (text, userId, account, api) {
   const searchText = followUp ? `${followUp} ${text}` : text;
 
   // 型號比較：「比較型號」兩步選、「P5 跟 B5 差在哪」→ 即時產生比較表
-  const cmp = this.milCompare(id, text);
+  // 上一句問「要跟哪一台比較」（10 分鐘內）→ 這句當成第二台
+  const pending = conv.compareFrom && Date.now() - conv.compareFrom.at < 10 * 60 * 1000 ? conv.compareFrom.code : null;
+  const cmp = this.milCompare(id, text, pending);
+  if (pending || (cmp && cmp.from)) {
+    this.update(id, (x) => {
+      const c = x.conversations[userId];
+      if (!c) return;
+      if (cmp && cmp.from) c.compareFrom = { code: cmp.from, at: Date.now() };
+      else delete c.compareFrom;
+    });
+  }
   if (cmp) {
+    if (cmp.unknown) this.accountLog(id, `顧客想比較的「${cmp.unknown}」不在型號清單`);
     this.update(id, (x) => {
       today(x).faq += 1;
       const f = cmp.faq && x.faqs.find((y) => y.id === cmp.faq.id);
@@ -410,9 +421,11 @@ P.unanswered = function (id, userId, question) {
 };
 
 /// 型號比較（MIL 版）：問的時候才算。店家自己寫過同一題（或手動改過）就用店家的版本
-P.milCompare = function (id, text) {
+P.milCompare = function (id, text, from) {
   if (!isMIL) return null;
-  const r = require('./mil/compare').handle(this.milCatalog(id), text);
+  const compare = require('./mil/compare');
+  const c = this.milCatalog(id);
+  const r = (from && compare.pickSecond(c, from, text)) || compare.handle(c, text);
   if (!r) return null;
   const { TAG, EDITED } = require('./mil/index');
   const own = (this.data[id].faqs || []).find((f) => f.question === r.question && (!f.keywords.includes(TAG) || f.keywords.includes(EDITED)));

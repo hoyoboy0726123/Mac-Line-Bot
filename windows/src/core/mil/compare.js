@@ -128,7 +128,7 @@ function handle(c, text) {
     const a = onlyModel(c, m[1]), g = findGroup(c, m[2]);
     if (a && g) {
       return {
-        question: `${label(c, a)} 比 ${g.name} 系列`, answer: `要拿 ${a.display} 跟 ${g.name} 系列的哪一台比較呢？👇`, flex: null,
+        question: `${label(c, a)} 比 ${g.name} 系列`, answer: `要拿 ${a.display} 跟 ${g.name} 系列的哪一台比較呢？👇`, flex: null, from: a.code,
         quickReplies: paged(g.models.filter((x) => x !== a).map((x) => pair(c, a, x)), page, (n) => `${label(c, a)} 比 ${g.name} 系列 第${n}頁`),
       };
     }
@@ -142,7 +142,7 @@ function handle(c, text) {
     const a = onlyModel(c, m[1]);
     if (a) {
       return {
-        question: pickFirst(c, a), answer: `要拿 ${a.display} 跟哪一台比較呢？👇`, flex: null,
+        question: pickFirst(c, a), answer: `要拿 ${a.display} 跟哪一台比較呢？👇`, flex: null, from: a.code,
         quickReplies: paged(withList(c, a), page, (n) => `${pickFirst(c, a)} 第${n}頁`),
       };
     }
@@ -163,4 +163,28 @@ function handle(c, text) {
   return null;
 }
 
-module.exports = { handle, resolve, groups, groupOf, startList, withList, MAX, PAGE };
+/// 第二步直接打字回答（「要拿 B5 跟哪一台比較呢？」→「B7」）
+/// 打的是型號 → 比較表；不認得的型號 → 說沒有資料，再列一次可以比的；看起來是別的問題 → null
+function pickSecond(c, code, text) {
+  const a = c && c.models.find((m) => m.code === code);
+  const body = (text || '').trim();
+  if (!a || !body) return null;
+  // 去掉「跟、那、吧、呢」這些字，剩下的整句就是型號才算在選第二台（「P5 可以摔嗎」是別的問題）
+  const name = body.replace(/^(那|那就|就|跟|和|與|比|比較|vs\.?)+\s*/i, '').replace(/[\s。.!！?？吧呢啊好了]+$/, '').trim();
+  if (!name) return null;
+  const r = resolve(c, name);
+  if (r.models.length) {
+    const b = r.models.length === 1 && r.covered === r.length ? r.models[0] : null;
+    return b && b !== a ? compareOf(c, a, b) : null;
+  }
+  // 沒認出型號：很短、像型號的字（B7、ExpertBook B7、X13）才當成在選第二台
+  if (!/^[A-Za-z][A-Za-z ]{0,14}\d[A-Za-z0-9-]{0,10}$/.test(name)) return null;
+  return {
+    question: pickFirst(c, a),
+    answer: `目前沒有「${name}」的軍規測試資料，沒辦法比較 🙏\n可以跟 ${a.display} 比較的有這些 👇`,
+    flex: null, from: a.code, unknown: name,
+    quickReplies: paged(withList(c, a), 1, () => `${pickFirst(c, a)} 第2頁`),
+  };
+}
+
+module.exports = { handle, pickSecond, resolve, groups, groupOf, startList, withList, MAX, PAGE };
