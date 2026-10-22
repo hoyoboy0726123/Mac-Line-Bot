@@ -40,7 +40,7 @@
       { title: '營運', items: ['overview', 'conversations', 'reservations', 'usage'] },
       { title: '內容', items: (mil ? ['milModels'] : []).concat(['knowledge', 'store', 'rules']) },
       { title: '設定', items: ['line'] },
-      { title: '這台電腦', items: ['accounts', 'system'] },
+      { title: S.state && S.state.cloud ? '系統' : '這台電腦', items: ['accounts', 'system'] },
     ];
   }
 
@@ -77,6 +77,12 @@
     refreshing = true;
     try {
       S.state = await get('/api/state');
+      if (S.state.cloud) {
+        // 雲端版的頁面說明
+        SECTIONS.line.subtitle = 'LINE 官方帳號、Webhook、圖文選單與你的 LINE 綁定';
+        SECTIONS.system.subtitle = '雲端運作狀態與 AI 模型';
+        SECTIONS.accounts.subtitle = '多個官方帳號同時跑，各有自己的知識庫';
+      }
       S.needLogin = false;
       const id = S.state.selectedAccountId;
       S.data = id ? await get(`/api/data?account=${encodeURIComponent(id)}`) : null;

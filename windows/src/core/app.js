@@ -129,7 +129,8 @@ class App extends EventEmitter {
     a.channelSecret = secret;
     a.channelAccessToken = token;
     this.accounts.push(a);
-    const d = models.sampleAccountData();
+    // 軍規版不放一般版的範例（營業時間、刷卡），免得 AI 拿來回答
+    const d = isMIL ? models.defaultAccountData() : models.sampleAccountData();
     d.store.name = a.displayName;
     this.data[a.id] = d;
     if (isMIL) {
