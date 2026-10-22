@@ -517,7 +517,7 @@
         <Toggle v-model="form.useFlex" label="用卡片呈現（Flex Message）：型號比較表、測試條件、型號總覽"/>
         <div class="row"><span>回覆字數上限</span><input type="number" min="50" max="400" step="25" v-model.number="form.maxReplyLength" style="width:90px"> 字</div>
         <label class="field"><span>加好友歡迎訊息</span><textarea v-model="form.greetingMessage" rows="2"></textarea></label>
-        <label class="field"><span>答不出來時的回覆（同時加入待補清單）</span><textarea v-model="form.fallbackMessage" rows="2"></textarea></label>
+        <label class="field"><span>答不出來時的回覆（同時加入待補清單，後面會自動附上「可以這樣問」的示範和按鈕）</span><textarea v-model="form.fallbackMessage" rows="2"></textarea></label>
       </div>
       <div class="card col">
         <h3>轉人工</h3>

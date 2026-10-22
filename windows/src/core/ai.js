@@ -122,7 +122,8 @@ function formatForLINE(raw) {
 function saysNoInfo(reply) {
   if (reply.includes('\n・') || count(reply) > 80) return false;
   const phrases = ['沒有這項資訊', '目前沒有資料', '沒有相關資料', '沒有相關資訊', '沒有資料提到', '資料中沒有', '沒有明確的資訊', '無法回答', '不清楚'];
-  return phrases.some((p) => reply.includes(p));
+  // 「目前沒有 B7 型號的電池使用時間資料」這種中間夾了字的說法
+  return phrases.some((p) => reply.includes(p)) || /^[^\n]{0,6}(目前)?(沒有|查不到|找不到)[^\n，。]{0,24}(資料|資訊)/.test(reply.trim());
 }
 
 /// 判斷訊息類型（跟 Agent 查資料同時進行）：太模糊要反問、問機器人是誰、要找真人……

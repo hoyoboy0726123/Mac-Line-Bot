@@ -301,7 +301,8 @@ P.decide = async function (text, userId, account, api) {
   const agentOn = this.agentOn && !retriever.isSmallTalk(text);
   api.startLoading(userId, agentOn ? 60 : 20);
   const started = Date.now();
-  const history = conv.messages.slice(0, -1);
+  // 罐頭訊息後面的示範問法不給 AI 看（不然它會照抄）
+  const history = conv.messages.slice(0, -1).map((m) => (m.role === 'bot' && m.text ? { ...m, text: m.text.split(TIPS_HEAD)[0] } : m));
 
   // 同時判斷訊息類型：太模糊就反問、問「你是誰」就自我介紹、要找真人就轉人工（不用等 Agent 查完）
   const routing = retriever.isSmallTalk(text) ? Promise.resolve('greeting') : ai.route({ question: text, history, client: this.client() });
@@ -373,27 +374,47 @@ P.decide = async function (text, userId, account, api) {
 
 // MARK: - 反問／自我介紹（由程式組成，不讓 AI 自由發揮，避免亂編）
 
-P.guideReply = function (id, kind) {
+/// 示範問法與快速按鈕：自我介紹、問題太模糊、答不出來時都會附上，教顧客怎麼問
+P.guideExamples = function (id) {
   const d = this.data[id];
-  const e = (x) => (d.rules.useEmoji === false ? '' : x);
-  const name = d.store.name || '我們';
   if (isMIL) {
     const models = (this.milCatalog(id).models || []).filter((m) => m.aliases && m.aliases.length);
     const shortest = (m) => [...m.aliases].sort((a, b) => [...a].length - [...b].length)[0];
     const a = models[0] ? shortest(models[0]) : 'P5';
     const b = models[1] ? shortest(models[1]) : 'B5';
-    const examples = [`・「${a} 通過哪些測試」`, '・「低溫測試怎麼做」', `・「${a} 跟 ${b} 差在哪」`];
-    const quick = ['有哪些型號通過軍規', '軍規測試有哪些項目', '比較型號', `${a} 通過哪些測試`];
+    return {
+      examples: [`・「${a} 通過哪些測試」`, '・「低溫測試怎麼做」', `・「${a} 跟 ${b} 差在哪」`],
+      quick: ['有哪些型號通過軍規', '軍規測試有哪些項目', '比較型號', `${a} 通過哪些測試`],
+    };
+  }
+  const faqs = d.faqs.filter((f) => f.isEnabled !== false).slice(0, 4).map((f) => f.question);
+  return { examples: faqs.slice(0, 3).map((q) => `・「${q}」`), quick: faqs };
+};
+
+P.guideReply = function (id, kind) {
+  const d = this.data[id];
+  const e = (x) => (d.rules.useEmoji === false ? '' : x);
+  const name = d.store.name || '我們';
+  const { examples, quick } = this.guideExamples(id);
+  if (isMIL) {
     const text = kind === 'vague'
       ? [`想查哪一款型號，或哪一項測試呢？${e(' 🙂')}`, '可以這樣問：', ...examples, '也可以點下面的按鈕。'].join('\n')
       : [`我是「${name}」的 LINE 小幫手${e(' 🙂')}`, '可以幫您查華碩商用筆電的軍規（MIL-STD-810H）測試，例如：', ...examples, '需要專人協助，輸入「我要找真人」就可以。'].join('\n');
     return reply(text, 'guide', quick);
   }
-  const quick = d.faqs.filter((f) => f.isEnabled !== false).slice(0, 4).map((f) => f.question);
   const text = kind === 'vague'
     ? `想詢問哪方面呢？${e(' 🙂')}\n直接輸入問題就可以，也可以點下面的常見問題。`
     : `我是「${name}」的 LINE 小幫手${e(' 🙂')}\n可以回答常見問題，直接輸入問題就可以；需要專人協助，輸入「我要找真人」。`;
   return reply(text, 'guide', quick);
+};
+
+/// 答不出來的罐頭訊息後面，加上「可以這樣問」的示範和按鈕
+const TIPS_HEAD = '\n\n也可以換個方式問，例如：';
+P.fallbackReply = function (id, note = '') {
+  const rules = this.data[id].rules;
+  const { examples, quick } = this.guideExamples(id);
+  const tips = examples.length ? `${TIPS_HEAD}\n${examples.join('\n')}` : '';
+  return reply(`${rules.fallbackMessage}${note}${tips}`, 'fallback', quick);
 };
 
 // MARK: - 答不出來 → 待補清單
@@ -417,7 +438,7 @@ P.unanswered = function (id, userId, question) {
   if (rules.notifyUnanswered && isNew) {
     this.notifyOwners(id, [LineMessage.text(`❓ ${name} 問了知識庫沒有的問題：\n「${prefix(question, 200)}」\n\n已加入待補清單。要直接回覆請傳：\n#${conv.handoffCode || ''} 你的回覆`)], userId);
   }
-  return reply(rules.fallbackMessage, 'fallback');
+  return this.fallbackReply(id);
 };
 
 /// 型號比較（MIL 版）：問的時候才算。店家自己寫過同一題（或手動改過）就用店家的版本
@@ -739,13 +760,13 @@ P.preview = async function (text, accountId) {
   const toAgent = this.agentOn && (multiItem || retriever.refersToPrevious(text));
   const faq = toAgent ? null : retriever.matchFAQ(milWording(text), comparing ? d.faqs.filter((f) => f.question.includes('比較')) : d.faqs);
   if (faq) { const r = reply(faq.answer, 'faq', faq.quickReplies || []); if (faq.flex && rules.useFlex !== false) r.flex = faq.flex; return r; }
-  if (!this.aiReady) return reply(rules.fallbackMessage, 'fallback');
+  if (!this.aiReady) return this.fallbackReply(accountId);
   const started = Date.now();
   const done = (r) => { r.latency = (Date.now() - started) / 1000; return r; };
   if (this.agentOn) {
     const result = await this.runAgent(text, [], d, accountId);
     if (result) {
-      if (!result.answerable) return done(reply(`${rules.fallbackMessage}\n\n（知識庫沒有答案，會加入待補清單）`, 'fallback'));
+      if (!result.answerable) return done(this.fallbackReply(accountId, '\n\n（知識庫沒有答案，會加入待補清單）'));
       return done(reply(`${result.reply}\n\n（Agent 查了 ${result.searches.length} 次）`, 'ai'));
     }
   }
@@ -756,7 +777,7 @@ P.preview = async function (text, accountId) {
     const knowledge = retriever.context(text, d, { terms, semantic, budget: 3000, maxPieces: 5 });
     const a = await withTimeout(60, (signal) => ai.answer({ question: text, knowledge, history: [], store: d.store, rules, client, signal }));
     if ((a.intent === 'question' || a.intent === 'other') && (!a.answerable || !retriever.hasKnowledge(knowledge))) {
-      return done(reply(`${rules.fallbackMessage}\n\n（知識庫沒有答案，會加入待補清單）`, 'fallback'));
+      return done(this.fallbackReply(accountId, '\n\n（知識庫沒有答案，會加入待補清單）'));
     }
     return done(reply(a.reply, 'ai'));
   } catch (e) {
